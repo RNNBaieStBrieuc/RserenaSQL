@@ -1,0 +1,131 @@
+---
+title: "Inventaire (liste complete)"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#008B00;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0fc90f;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0e510e;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: #CCCCCC}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style>
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(DT)
+#initialisation
+library(readxl)
+library(doBy)
+library(reshape2)
+library(crosstalk)
+library(plyr)
+library(stringr)
+####################################
+#ouverture des data
+taxo <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/taxo.xlsx",sheet = 1))
+obs <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_OBSE.xlsx",
+  sheet = 1))
+site <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_SITE.xlsx",
+  sheet = 1))
+###################################
+#reduction data site sans coordonnées centroide
+site<-site[,c(1:3)]
+#gestion des sites
+site$reg<-""
+site$reg[grep("_1005_",site$SITE_ASCEND_C)]<-"ZPS-horsRN"
+site$reg[grep("_1007_",site$SITE_ASCEND_C)]<-"RN"
+site$reg[grep("_1017_",site$SITE_ASCEND_C)]<-"ZSC"
+site$reg[site$reg ==""]<-"hors-N2000"
+site$reg[site$SITE_ID ==1003]<-"N2000"
+#habitat
+site$hab<-""
+site$hab[grep("_1005_",site$SITE_ASCEND_C)]<-"estran"
+site$hab[grep("_1008_",site$SITE_ASCEND_C)]<-"estran"
+site$hab[grep("_1046_",site$SITE_ASCEND_C)]<-"dunes"
+site$hab[grep("_1038_",site$SITE_ASCEND_C)]<-"herbus"
+site$hab[grep("_1045_",site$SITE_ASCEND_C)]<-"herbus"
+site$hab[grep("_1012_",site$SITE_ASCEND_C)]<-"estuaire-ZPR"
+site$hab[grep("_1017_",site$SITE_ASCEND_C)]<-"falaise-ZSC"
+site$hab[grep("_1035_",site$SITE_ASCEND_C)]<-"subtidal"
+site$hab[grep("_1042_",site$SITE_ASCEND_C)]<-"subtidal"
+site$hab[grep("_1043_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1090_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1088_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+#finalisation data
+tmp<-merge(obs,taxo,by.x="OBSE_TAXO_ID",by.y="ID TAXON REFERENCE",all.x = T)
+data<-merge(tmp,site,by.x="OBSE_SITE_ID",by.y="SITE_ID")
+#suppression Z Pseudo-taxons
+data<-data[data$OBSE_TAXO_ID !=100000,]
+#reduction table et classement
+# $ GROUPE TAXONOMIQUE/OBSE_LMOD_DATH/NOM LATIN REFERENCE
+#$ NOM VERNAC. REFERENCE/$ SITE_NOM/reg/hab
+dataTr<-data[,c(10,9,11,12,16,18,19)]
+dataTr<-arrange(dataTr, dataTr[,1], dataTr[,3], dataTr[,2])
+#factor
+dataTr$reg<-as.factor(dataTr$reg)
+dataTr$hab<-as.factor(dataTr$hab)
+dataTr$SITE_NOM<-as.factor(dataTr$SITE_NOM)
+dataTr$'NOM LATIN REFERENCE'<-as.factor(dataTr$'NOM LATIN REFERENCE')
+dataTr$'GROUPE TAXONOMIQUE'<-as.factor(dataTr$'GROUPE TAXONOMIQUE')
+dataTr$'NOM VERNAC. REFERENCE'<-as.factor(dataTr$'NOM VERNAC. REFERENCE')
+
+dataTr$OBSE_LMOD_DATH<-str_sub(dataTr$OBSE_LMOD_DATH, 1, 10)
+dataTr$OBSE_LMOD_DATH<-as.Date(dataTr$OBSE_LMOD_DATH, "%Y-%m-%d")
+dataTr$OBSE_LMOD_DATH<-format(dataTr$OBSE_LMOD_DATH, "%d/%m/%Y")
+
+#exportation table
+#write.table(data, "dataSERENA.txt", row.names=FALSE, sep="\t",dec=",", na=" ")
+#write.table(dataTr, "dataSERENAtr.txt", row.names=FALSE, sep="\t",dec=",", na=" ")
+```
+
+
+Data {data-icon="fa-book"}
+=====================================
+
+###
+```{r}
+
+colnames(dataTr)<-c("groupe","date","espèce","nom Fr.","site","zone prot.","habitat")
+
+#table
+  datatable (dataTr,filter = "top",  
+    extensions = c("Scroller",'FixedColumns','Buttons'),
+    rownames = FALSE,style = "bootstrap",
+    class = 'compact',
+    options = list(dom = "rBtip",
+               deferRender = T,scroller = F,
+               pageLength = 1000,
+               extensions = 'Responsive',
+               buttons = list(
+              list(extend = 'excel',filename = 'data-Ornitho',
+title = "Synthèse ornithologique - Ensemble des données de comptage")), 
+      columnDefs = list(list(className = 'dt-center', targets = c(1:5)))))
+    
+    
+    
+
+```

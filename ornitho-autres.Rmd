@@ -1,0 +1,267 @@
+---
+title: "Comptages ornitho - Ardéidés, Podicipédidés, Phalacrocoracidés "
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Acces au site", href: "http://www.reservebaiedesaintbrieuc.com", align: rigth }
+    
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #666461;}
+.chart-title {color: #006400;}
+</style>
+```{css my-content, echo = FALSE}
+.value-box {
+    height: 15%;}
+```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(readxl)
+library(questionr)
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(leaflet)
+library(plotly)
+library(lubridate)
+####################################
+#ouverture des resultats produit par
+#RSERENA-ornitho-bilan.Rmd
+load("ornitho.RData")
+
+```
+
+
+
+
+analyse par mois {data-icon="fa-area-chart"}
+=====================================
+
+```{r}
+gac <- function (i) {
+  tmp<-dataMl[dataMl$mois ==i ,]
+tmp<-tmp[,c(-3)]
+colnames(tmp)<-c("especes","annee","effectif")
+moyM<-mean(tapply(tmp$effectif, tmp$annee, sum))
+lmoyM<-round(tapply(tmp$effectif, tmp$annee, sum),0)
+moyD<-lmoyM[length(lmoyM)]
+val<-paste("moy :",round(moyM,0),"-",
+           "max:",round(max(tapply(tmp$effectif, tmp$annee, sum)),0),"-",
+"min:",round(min(tapply(tmp$effectif, tmp$annee, sum)),0))
+ #figure plotly
+  fig <- plot_ly(tmp, x = ~annee, y = ~effectif, 
+                 type = 'bar', color= ~especes,
+                 colors=gradCol,
+                width = 1000, height = 500)%>% 
+  layout(yaxis = list(title = 'Effectifs'), 
+        xaxis = list(title = val), barmode = 'stack')
+  fig
+  }
+#Ardéidés Podicipédidés Phalacrocoracidés
+sp<-c("Héron garde-boeufs","Grande Aigrette",
+      "Aigrette garzette","Héron cendré","Grèbe à cou noir","Grèbe castagneux","Grèbe esclavon",
+      "Grèbe huppé","Grèbe jougris",
+      "Grand cormoran", "Spatule blanche")
+dataMl<-dataT[dataT$TAXO_VERNACUL %in% c(sp),]
+dataMl<-dataMl[dataMl$annee >1999,]
+dataMl$rSP <- as.character(dataMl$TAXO_VERNACUL)
+#aggregate
+dataMl<-aggregate(SommeDeOBSE_NOMBRE~rSP+
+                   annee+mois,data=dataMl,mean)
+#col
+gradCol <- colorRampPalette(c("#D9E0F0","#B6C5E3","#92ABD7","#6C92CB", "#3C79C0","#2F609A","#224976","#173353"), space = "rgb")(11)
+
+
+```
+
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a> 
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a>
+
+<hr/>
+*Analyse :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html'>`Ardéidés, Podicipédidés...`</a></font>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html'>**Tableaux et data**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+### date du dernier comptage
+```{r}
+valueBox(paste(ddc[3],"/",ddc[2],"/",ddc[1],sep=""), icon = "ion-ios-calendar-outline")
+```
+
+
+Row {.tabset .tabset-fade data-width=800}
+-------------------------------------
+### `r month(ddc[2],label = TRUE ,abbr = FALSE)`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r month(ddc[2],label = TRUE ,abbr = FALSE)`**  
+```{r}
+nmois<-ddc[2]
+gac(nmois)
+nmois<-ddc[2]+1
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+2
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+3
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+4
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+5
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+6
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+7
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+8
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+9
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+10
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+11
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+
+### `r nommois`
+Résultats des moyennes mensuelles des comptages de limicoles pour le mois de **`r nommois`**  
+```{r}
+gac(nmois)
+nmois<-ddc[2]+12
+if(nmois>12){nmois=nmois-12}
+nommois<-month(nmois,label = TRUE ,abbr = FALSE)
+```
+

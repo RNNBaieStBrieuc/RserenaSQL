@@ -1,0 +1,161 @@
+---
+title: "Observatoire photographique des paysages"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+       - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#9ACD32;
+  border-color:#006400;}
+.navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #9acd32;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #52740d;}
+.navbar-brand {
+color:white!important;}
+</style>
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(RColorBrewer)
+library(leaflet)
+library(maptools)
+library(leafem)
+
+
+```
+
+Sites d'observation {data-icon="ion-compass"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+
+
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/rapports_cientifiques/observatoire-photographie-paysages.pdf' target='_blank'>**Le rapport complet en dpf**</a>
+
+<hr/>
+
+**Les fiches par station :**
+
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot.pdf' target='_blank'>**Plage de Lermot**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot-parking.pdf' target='_blank'>**Lermot - parking**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot-grève.pdf' target='_blank'>**Gréve de Lermot**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-ouest.pdf' target='_blank'>**Bon-Abri-Ouest**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-est.pdf' target='_blank'>**Bon-Abri-Est**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-camping.pdf' target='_blank'>**Camping de Bon-Abri**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Hotellerie.pdf' target='_blank'>**Falaise de l’Hôtellerie**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Hotellerie-plage.pdf' target='_blank'>**Plage de l’Hôtellerie**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Illemont.pdf' target='_blank'>**Pointe d’Illemont**</a><br>
+OPP-fiche<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPF/Pisseoison.pdf' target='_blank'>**Pisse-Oison**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Roselier.pdf' target='_blank'>**Pointe du Roselier**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-ficheOPP-fiche/Legue.pdf' target='_blank'>**Roselier-Légué**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Valais.pdf' target='_blank'>**Plage du Valais**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Cage-nord.pdf' target='_blank'>**La Cage-Nord**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Cage-sud.pdf' target='_blank'>**La Cage-Sud**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gourien.pdf' target='_blank'>**Anse de Gourien**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/gdc-nord.pdf' target='_blank'>**Gréve des Courses-Nord**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/gdc-douvenant.pdf' target='_blank'>**Gréve des Courses-Douvenant**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/le-clos.pdf' target='_blank'>**Le clos**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Boutdeville.pdf' target='_blank'>**Bout de Ville**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/StMaurice.pdf' target='_blank'>**Saint-Maurice**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gouessant-Nord.pdf' target='_blank'>**Estuaire du Gouessant-Nord**</a><br>
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gouessant-Sud.pdf' target='_blank'>**Estuaire du Gouessant-Sud**</a>
+
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+### **Carte des sites de prises de vues.(cliquer sur les marqueurs)**
+
+```{r}
+ptObs<-data.frame(long=c(-2.663348,-2.663404,-2.662923,-2.659425,-2.648217,-2.657131,-2.675573,-2.675724,-2.676286,-2.663287,-2.679990,-2.714953,-2.715358,-2.716867,-2.703110,-2.703003,-2.713694,-2.713003,-2.710582,-2.686851,-2.697333,-2.633293,-2.628435,-2.625740),
+lat=c(48.531163,48.531430,48.531332,48.527781,48.524449,48.524902,48.513831,48.513104,48.512644,48.533384,48.502554,48.553879,48.553690,48.526495,48.514006,48.513325,48.522949,48.522382,48.520538,48.494333,48.504367,48.528954,48.526630,48.524845),
+nom=c("<b>Plage de Lermot<b>","<b>Lermot-parking<b>","<b>Gréve de Lermot<b>","<b>Bon-Abri-Ouest<b>","<b>Bon-Abri-Est<b>","<b>Camping de Bon-Abri<b>","<b>Falaise de l’Hôtellerie<b>","<b>Plage de l’Hôtellerie<b>","<b>Pointe d’Illemont<b>","<b>Pointe des Guettes<b>","<b>Pisse-Oison<b>","<b>Pointe du Roselier<b>","<b>Pointe du Roselier-Légué<b>","<b>Plage du Valais<b>","<b>La Cage-Nord<b>","<b>La Cage-Sud<b>","<b>Anse de Gourien<b>","<b>Gréve des Courses-Nord<b>","<b>Gréve des Courses-Douvenant<b>","<b>Le clos<b>","<b>Bout de Ville<b>","<b>Saint-Maurice<b>","<b>Estuaire du Gouessant-Nord<b>","<b>Estuaire du Gouessant-Sud<b>"),
+col=c("blue","blue","blue","blue","blue","brown","green","green","green","brown","green","brown","brown","brown","green","green","brown","brown","brown","green","green","green","green","green"),
+type=c("reconduction d'une photo ancienne","reconduction d'une photo ancienne","reconduction d'une photo ancienne","reconduction d'une photo ancienne","reconduction d'une photo ancienne & dynamique d'évolution naturelle","aménagement","dynamique d'évolution naturelle","dynamique d'évolution naturelle","dynamique d'évolution naturelle","aménagement & dynamique d'évolution naturelle","dynamique d'évolution naturelle","aménagement","aménagement","aménagement","dynamique d'évolution naturelle","dynamique d'évolution naturelle", "aménagement","aménagement","aménagement", "dynamique d'évolution naturelle", "dynamique d'évolution naturelle", "dynamique d'évolution naturelle", "dynamique d'évolution naturelle","dynamique d'évolution naturelle"),
+icone=c("fa-camera-retro","fa-camera-retro","fa-camera-retro","fa-camera-retro","fa-signature","fa-archway","fa-signature","fa-signature","fa-signature","fa-signature","fa-signature","fa-archway","fa-archway","fa-archway","fa-signature","fa-signature","fa-archway","fa-archway","fa-archway","fa-signature","fa-signature","fa-signature","fa-signature","fa-signature"),
+rec=c("1 an","1 an","5 ans","1 an","1 an","5 ans","1 an","5 ans","5 ans","5 ans","1 an","5 ans","5 ans","5 ans","1 an","1 an","5 ans","5 ans","5 ans","1 an","1 an","5 ans","1 an","1 an"),
+fiche=c("<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot-parking.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Lermot-grève.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-ouest.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-est.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/BA-camping.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Hotellerie.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Hotellerie-plage.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Illemont.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Guette.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Legue.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Pisseoison.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Roselier.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Valais.pdf'target='_blank'>la fiche</a></b>","<b><a  href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Cage-nord.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Cage-sud.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gourien.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/gdc-nord.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/gdc-douvenant.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/le-clos.pdf'target='_blank'>la fiche</a></b>","<b><a
+href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Boutdeville.pdf'target='_blank'>la fiche</a></b>","<b><a
+href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/StMaurice.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gouessant-Nord.pdf'target='_blank'>la fiche</a></b>","<b><a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/OPP-fiche/Gouessant-Sud.pdf'target='_blank'>la fiche</a></b>"))
+
+icons <- awesomeIcons(icon = ptObs$icone,iconColor = "white",
+  library = 'fa', markerColor =ptObs$col )
+
+leaflet() %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>% setView(lng=-2.6631, lat= 48.5250, zoom = 13)%>% addAwesomeMarkers(ptObs$long, ptObs$lat, icon=icons, 
+      popup = paste(ptObs$nom,"<br>",ptObs$fiche,"<br>",
+                    "thème :",ptObs$type,"<br>",
+  "image reconduite tous les : ",ptObs$rec))%>%
+ addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%
+            addLayersControl(
+                baseGroups = c("OpenStreet", "WorldImagery"),
+                options = layersControlOptions(collapsed = FALSE))%>%
+            addScaleBar()%>%
+            addMouseCoordinates(epsg ="+proj=longlat +ellps=WGS84",
+                                proj4string="EPSG:2154",native.crs=T)
+  
+```
+
+
+
+**qu'est ce qu'un OPP** {data-icon="fa-book"}
+=====================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+### **Objectif**
+Un observatoire photographique des paysages a pour objectif de *«constituer un fonds de séries photographiques qui permette d’analyser les mécanismes et les facteurs de transformation des espaces ainsi que les rôles des différents acteurs qui en sont la cause de façon à orienter favorablement l’évolution du paysage »* (MEDDAT, 2008).
+
+
+
+### **Méthodologie**
+- Les points de vue photographiés ont été regroupés en 3 catégories, la reconduction des photos anciennes, les dynamiques d’évolution naturelle (dynamique de végétation ainsi que dynamique d’érosion) et les projets d’aménagement.
+Les choix de certaines prises de vues ont donc été guidés par les photos anciennes et les projets d’aménagement. En ce qui concerne les prises de vue pour la dynamique d’évolution naturelle, elles ont été prises en fonction des dynamiques sédimentaires ou végétales du site.
+
+- La Réserve Naturelle ayant un territoire de 1 140ha, il a été choisi de réaliser 24 prises de vues pour avoir un ensemble représentatif selon les trois thèmes abordés. La thématique la plus présente est celle de la dynamique d’évolution naturelle, cela concerne 13 prises de vue sur les 24. 
+
+### **Intéret**
+L’observatoire photographique de la Réserve Naturelle Baie de Saint-Brieuc est un outil qui va permettre de suivre l'évolution des paysages sur la Réserve. Grâce aux photos, chacun pourra percevoir cette évolution, perception qui pourra être complétée par les observations faites avec d’autres outils comme les photos aériennes.
+Il pourra également permettre le suivi et la maitrise des modifications et de leurs influences sur le territoire de la Réserve, comme l’urbanisation croissante de agglomération et augmentation du tourisme, ainsi que la surveillance des détériorations des milieux naturels.
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+### démarrage de l'OPP 
+```{r}
+valueBox(" juin 2014", icon = "fa-camera", col="#66CD00")
+```
+
+### image la plus ancienne 
+```{r}
+valueBox("1917/1923", icon = "fa-camera-retro", col="#00CD00")
+```
+
+### mise à jour des dernières images 
+```{r}
+valueBox(" juin 2024", icon = "fa-edit", col="#00CD00")
+```
+
+### nombre d'images 
+```{r}
+valueBox("180", icon = "ion-calculator", col="#008B00")
+```
+
+
+###
+
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/rapports_cientifiques/observatoire-photographie-paysages.pdf' target='_blank'>**Rapport complet en pdf (mise à jour annuelle)**

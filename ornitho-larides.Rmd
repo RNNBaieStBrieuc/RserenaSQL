@@ -1,0 +1,428 @@
+---
+title: "Comptages laridés"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #666461;}
+.chart-title {color: #006400;}
+</style>
+```{css my-content, echo = FALSE}
+.value-box {
+    height: 15%;}
+```
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(readxl)
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(leaflet)
+library(plotly)
+library(DT)
+library(questionr)
+#ouverture des data
+dataT <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage.xlsx",
+                                  sheet = 1))
+Cond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage-cond.xlsx",
+                                  sheet = 1))
+lCond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_CHOI.xlsx",
+                                  sheet = 1))
+#####################################
+#recodage variable
+dataT<-rename.variable(dataT, "ANNEE", "annee")
+dataT<-rename.variable(dataT, "MOIS", "mois")
+dataT<-rename.variable(dataT, "JOUR", "jour")
+dataT<-rename.variable(dataT, "SOMMEDEOBSE_NOMBRE", "SommeDeOBSE_NOMBRE")
+#en numeric
+dataT$annee<-as.numeric(dataT$annee)
+dataT$mois<-as.numeric(dataT$mois)
+dataT$jour<-as.numeric(dataT$jour)
+dataT$SommeDeOBSE_NOMBRE<-as.numeric(dataT$SommeDeOBSE_NOMBRE)
+#####################################
+dataT<-dataT[dataT$RELV_NOM %in% c("Comptage laridés"),]
+attach(dataT)
+date<-strptime(OBSE_DATE, '%Y%m%d')
+dataT<-cbind (dataT, date)
+dataT<-na.omit(dataT)
+#####################################
+#####################################
+#dernier comptage
+ddc<-as.numeric(substring(max(dataT$date),c(1,6,9),c(4,7,10)))
+dc<-dataT[dataT$date==max(dataT$date),]
+#######################################
+#########################################
+typedc<-dc$RELV_NOM[1]
+tabDc<-dc[,c(1,9)]
+colnames(tabDc)<-c("sp","effectif")
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+#effectif comptage
+totC<-colSums(tabDc[c(2)])
+#####################################
+#####################################
+#condition dernier comptage
+Condc<-Cond[Cond$OBSE_DATE==dc$OBSE_DATE[1],]
+lCond<-lCond[,c(1,2)]
+#precision comptage
+Condc[,c(7)]<-as.factor(Condc[,c(7)])
+prec.txt<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(7)])]
+levels(Condc[,c(7)])<-prec.txt
+Condc.sp<-Condc[,c(1,7)]
+Condc.sp<-na.omit(Condc.sp)
+tabDc<-merge(tabDc,Condc.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+#derangement
+Condc[,c(8)]<-as.factor(Condc[,c(8)])
+der<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(8)])]
+levels(Condc[,c(8)])<-der
+der.sp<-Condc[,c(1,8)]
+der.sp<-na.omit(der.sp)
+tabDc<-merge(tabDc,der.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+colnames(tabDc)<-c("sp","effectif","precision","condition")
+tabDc$precision<-as.character(tabDc$precision)
+tabDc$condition<-as.character(tabDc$condition)
+tabDc[is.na(tabDc)]<-"-"
+#meteo
+Condc[,c(10)]<-as.factor(Condc[,c(10)])
+Condc[,c(11)]<-as.factor(Condc[,c(11)])
+Condc[,c(13)]<-as.factor(Condc[,c(13)])
+met1<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(10)])]
+met2<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(11)])]
+met3<-Condc[1,13]
+######################################
+#comptages precedant
+nbTdate<-nlevels(as.factor(dataT$date))
+datedc<-levels(as.factor(dataT$date))[nbTdate]
+dcp1<-levels(as.factor(dataT$date))[nbTdate-1]
+cp1<-dataT[dataT$date==dcp1,]
+cp1<-cp1[,c(1,9)]
+totcp1<-colSums(cp1[c(2)])
+dfcp1<-strftime(as.Date(dcp1, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp2<-levels(as.factor(dataT$date))[nbTdate-2]
+cp2<-dataT[dataT$date==dcp2,]
+cp2<-cp2[,c(1,9)]
+totcp2<-colSums(cp2[c(2)])
+dfcp2<-strftime(as.Date(dcp2, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp3<-levels(as.factor(dataT$date))[nbTdate-3]
+cp3<-dataT[dataT$date==dcp3,]
+cp3<-cp3[,c(1,9)]
+totcp3<-colSums(cp3[c(2)])
+dfcp3<-strftime(as.Date(dcp3, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp4<-levels(as.factor(dataT$date))[nbTdate-4]
+cp4<-dataT[dataT$date==dcp4,]
+cp4<-cp4[,c(1,9)]
+totcp4<-colSums(cp4[c(2)])
+dfcp4<-strftime(as.Date(dcp4, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp5<-levels(as.factor(dataT$date))[nbTdate-5]
+cp5<-dataT[dataT$date==dcp5,]
+cp5<-cp5[,c(1,9)]
+totcp5<-colSums(cp5[c(2)])
+dfcp5<-strftime(as.Date(dcp5, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+datefdc<-strftime(as.Date(datedc, format = "%Y-%m-%d"),"%d-%m-%Y")
+#tableau des comptages
+tabDcr<-tabDc[,c(1,2)]
+tabCtmp1<-merge(tabDcr,cp1,by.x ="sp",by.y ="TAXO_VERNACUL", all.x=T)
+tabCtmp2<-merge(tabCtmp1,cp2,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+tabC<-merge(tabCtmp2,cp3,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+colnames(tabC)<-c("sp",datefdc,dfcp1,dfcp2,dfcp3)
+tabC[is.na(tabC)]<-"-"
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+# pour les comparaison et les graphes
+annC<-max(annee)
+annP<-max(annee)-1
+annM<-min(annee)
+##############################################
+#graphes
+grw<-function(sp,f=.75,debW=min(dataSP$annee)){
+  dataSP<-dataT[dataT$TAXO_VERNACUL %in% c(sp),]
+  dataSP<-dataSP[dataSP$annee >debW,]
+  #legende graphe
+  Effectif<-dataSP$SommeDeOBSE_NOMBRE
+  Date<-format(dataSP$date, "%d-%m-%Y")
+  val<-paste("moy :",round(mean(dataSP$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSP$SommeDeOBSE_NOMBRE)," - ",
+             "min:",min(dataSP$SommeDeOBSE_NOMBRE))
+  #graphe potly
+    FL <- plot_ly(dataSP, x = ~annee, 
+                y = ~SommeDeOBSE_NOMBRE, name = 'laridés', 
+                type = 'scatter', 
+                mode = 'lines+markers',showlegend = FALSE,
+                line = list(color = "forestgreen"),color = I('forestgreen'),
+                hovertemplate = paste('%{y:.0f}'))%>%
+    add_lines(y = ~fitted(loess(SommeDeOBSE_NOMBRE ~ annee,data=dataSP,
+                                span=f)),name = "tendance",
+              line = list(color="blue", width = .5),showlegend = FALSE,
+              hovertemplate = paste('%{y:.2f}'))%>%
+    add_trace(y = ~mean(SommeDeOBSE_NOMBRE) , 
+              name = 'moyenne', mode = 'lines',showlegend = FALSE,
+              line = list(color="blue", width = .5, dash = 'dash'),
+              hovertemplate = paste('%{y:.2f}'))%>%
+    layout(yaxis = list(title = sp), 
+           xaxis = list(title = val,zeroline = FALSE),
+           hovermode = "x unified",
+           legend = list(orientation = 'h'))
+  FL}
+```
+
+
+
+Dernier comptage Laridés {data-icon="fa-table"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a> 
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a>
+
+<hr/>
+*Analyse :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...`**</a>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html'>`Comptage Laridés`</a></font>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html' target='_blank'>**Tableaux et data**</a> 
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### `r typedc`
+```{r}
+valueBox(paste(ddc[3],"/",ddc[2],"/",ddc[1],sep=""), icon = "ion-ios-calendar-outline")
+```
+
+###
+
+```{r}
+knitr::kable(tabDc,align=c("l","c","l","l"))
+```
+
+Column {data-width=300}
+-----------------------------------------------------------------------
+
+### **Effectif total dénombré** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totC, icon = "ion-calculator")
+```
+
+
+### **Conditions de comptage :**
+`r met1`
+
+`r met2`
+
+température de l'air : `r met3`°C
+
+Comparaisons {data-icon="fa-columns"}
+=====================================
+
+
+Row {data-width=200}
+-----------------------------------------------------------------------
+### **Effectif total dénombré en `r annC`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totC, icon = "ion-calculator")
+```
+
+### **Effectif total dénombré en `r annP`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp1, icon = "ion-calculator")
+```
+
+### **Effectif total dénombré en `r annP-1`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp2, icon = "ion-calculator")
+```
+
+### **Effectif total dénombré en `r annP-2`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp3, icon = "ion-calculator")
+```
+
+### **Effectif total dénombré en `r annP-3`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp4, icon = "ion-calculator")
+```
+
+### **Effectif total dénombré en `r annP-4`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp5, icon = "ion-calculator")
+```
+
+
+Row {data-width=800}
+-----------------------------------------------------------------------
+
+###
+__Comparaison avec les précedents comptages des laridés__
+
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(tabC,align=c("l","c","c","c","c","c"))
+```
+
+
+Laridés/sp {data-icon="fa-line-chart"}
+=====================================
+
+
+Row {data-width=500}
+-------------------------------------
+### __Ensemble des laridés__
+
+```{r,echo=FALSE,  results='asis'}
+#total laridés
+  dataSPl<-aggregate(SommeDeOBSE_NOMBRE~
+                   annee,data=dataT,sum)
+  val<-paste("moy :",round(mean(dataSPl$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSPl$SommeDeOBSE_NOMBRE)," - ",
+             "min:",min(dataSPl$SommeDeOBSE_NOMBRE))
+   
+
+#figure plotly
+FtotL <-plot_ly(dataSPl, x = ~annee, 
+                 y = ~SommeDeOBSE_NOMBRE, name = 'données laridés', 
+                 type = 'scatter', 
+                 mode = 'lines+markers',
+                 line = list(color = "forestgreen"),color = I('#129612'),
+                 hovertemplate = paste('%{y:.0f}'))%>%
+  add_trace(y = ~mean(SommeDeOBSE_NOMBRE) , 
+            name = 'moyenne', mode = 'lines',
+            line = list(color="blue", width = .5, dash = 'dash'),
+            hovertemplate = paste('%{y:.2f}'))%>%
+add_lines(y = ~fitted(loess(SommeDeOBSE_NOMBRE ~ annee,data=dataSPl,
+                                span=.75)),name = "tendance",
+              line = list(color="blue", width = .5),
+              hovertemplate = paste('%{y:.2f}'))%>%
+  layout(yaxis = list(title = 'Effectifs totaux laridés'), 
+         xaxis = list(title ="",zeroline = FALSE),
+        hovermode = "x unified",legend = list(orientation = 'h'),
+                                      title=list(text=val))
+FtotL
+```
+
+Column {.tabset .tabset-fade data-width=500}
+-------------------------------------
+### _Mouette rieuse_
+```{r}
+sp<-"Mouette rieuse"
+grw(sp)
+```
+
+### _Goéland argenté_
+```{r}
+sp<-"Goéland argenté"
+grw(sp)
+```
+
+### _Goéland cendré_
+```{r}
+sp<-"Goéland cendré"
+grw(sp)
+```
+
+
+
+
+A propos {data-icon="fa-comment"}
+=====================================
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Sites de comptage des laridés
+
+```{r}
+library(leaflet)
+long<-c(-2.67977,-2.68747,-2.63991,-2.71624)
+lat<-c(48.50261,48.49549,48.52344,48.53165)
+nom<-c("pisseoison","Bourienne","La Grandville","Le Légué")
+icons <- awesomeIcons(icon = 'fa-binoculars',iconColor = 'darkgreen',
+  library = 'fa', markerColor ='green' )
+m = leaflet() %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+ m = m %>% setView(lng=-2.6631, lat= 48.5150, zoom = 12)
+ m %>% addAwesomeMarkers(long, lat, icon=icons, label=nom)
+  
+```
+
+
+Column {data-width=350}
+-------------------------------------
+Le principe est de compter les Laridés qui se rassemblent en fond de baie en début de soirée pour y passer la nuit. Quatre espèces sont plus particulièrement représentées : Goéland marin (_Larus marinus_), Goéland argenté (_Larus argentatus_), Goéland cendré (_Larus canus_) Mouette rieuse (_Larus ridibundus_) et dans une moindre mesure le Goéland brun (_Larus fuscus_). La Mouette mélanocéphale (_Larus melanocephalus_) fréquente également le site même sa présence demeure plus aléatoire.
+
+Des opérations de dénombrement sont conduites annuellement depuis 2004. Le comptage se déroule mi-décembre (de 15h30 jusqu'à la tombée de la nuit).Une marée haute vers 18h rassemble de bonnes conditions.Trois équipes sont nécessaires pour couvrir l'ensemble du fond de baie (Port du Légué, fond d'anse d'Yffiniac,la Grandville). Le comptage se réalise aux jumelles, mais un tour rapide à la longue-vue dès l'arrivée sur le site permet de comptabiliser rapidement les oiseaux déjà présents sur l'estran.
+

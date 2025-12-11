@@ -1,0 +1,753 @@
+---
+title: "Comptages Wetlands"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #666461;}
+.chart-title {color: #006400;}
+</style>
+```{css my-content, echo = FALSE}
+.value-box {
+    height: 15%;}
+```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(readxl)
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(leaflet)
+library(plotly)
+library(DT)
+library(questionr)
+####################################
+#ouverture des data
+dataT <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage.xlsx",
+                                  sheet = 1))
+Cond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage-cond.xlsx",
+                                  sheet = 1))
+lCond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_CHOI.xlsx",
+                                  sheet = 1))
+#ouverture des seuil Wetlands
+dataW <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),
+                                  sheet = "seuil"))
+#####################################
+#recodage variable
+dataT<-rename.variable(dataT, "ANNEE", "annee")
+dataT<-rename.variable(dataT, "MOIS", "mois")
+dataT<-rename.variable(dataT, "JOUR", "jour")
+dataT<-rename.variable(dataT, "SOMMEDEOBSE_NOMBRE", "SommeDeOBSE_NOMBRE")
+#en numeric
+dataT$annee<-as.numeric(dataT$annee)
+dataT$mois<-as.numeric(dataT$mois)
+dataT$jour<-as.numeric(dataT$jour)
+dataT$SommeDeOBSE_NOMBRE<-as.numeric(dataT$SommeDeOBSE_NOMBRE)
+#####################################
+dataT<-dataT[dataT$RELV_NOM %in% c("Comptage Wetlands"),]
+attach(dataT)
+date<-strptime(OBSE_DATE, '%Y%m%d')
+dataT<-cbind (dataT, date)
+dataT<-na.omit(dataT)
+#####################################
+#####################################
+#dernier comptage
+ddc<-as.numeric(substring(max(dataT$date),c(1,6,9),c(4,7,10)))
+dc<-dataT[dataT$date==max(dataT$date),]
+#######################################
+#########################################
+typedc<-dc$RELV_NOM[1]
+tabDc<-dc[,c(1,9)]
+colnames(tabDc)<-c("sp","effectif")
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+#effectif comptage
+totC<-colSums(tabDc[c(2)])
+#####################################
+#total dernier comptage par groupe
+#limicole
+spl<-c("Bécasseau maubèche",
+      "Bécasseau variable","Bécasseau sanderling","Barge rousse",
+      "Chevalier gambette","Chevalier guignette","Chevalier combattant",
+      "Courlis cendré","Pluvier argenté","Pluvier doré","Avocette élégante",
+      "Grand Gravelot","Huîtrier pie","Chevalier aboyeur",
+      "Chevalier guignette","Barge à queue noire","Chevalier arlequin",
+      "Vanneau huppé","Bécassine des marais","Bécassine sourde",
+      "Tournepierre à collier")
+tabDclimi<-tabDc[tabDc$sp %in% c(spl),]
+totClimi<-colSums(tabDclimi[c(2)])
+#canard
+spc<-c("Bernache cravant",
+      "Canard chipeau","Canard pilet","Canard siffleur",
+      "Canard souchet","Canard colvert","Sarcelle d'hiver","Tadorne de Belon",
+      "Macreuse noire")
+tabDccana<-tabDc[tabDc$sp %in% c(spc),]
+totCcana<-colSums(tabDccana[c(2)])
+#autre
+totAutre<-totC-totClimi-totCcana
+totGr<-rbind(totClimi,totCcana,totAutre)
+rownames(totGr)<-c("Limicoles","Anatidés","autres")
+#####################################
+#condition dernier comptage
+Condc<-Cond[Cond$OBSE_DATE==dc$OBSE_DATE[1],]
+lCond<-lCond[,c(1,2)]
+#precision comptage
+Condc[,c(7)]<-as.factor(Condc[,c(7)])
+prec.txt<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(7)])]
+levels(Condc[,c(7)])<-prec.txt
+Condc.sp<-Condc[,c(1,7)]
+Condc.sp<-na.omit(Condc.sp)
+tabDc<-merge(tabDc,Condc.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+#derangement
+Condc[,c(8)]<-as.factor(Condc[,c(8)])
+der<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(8)])]
+levels(Condc[,c(8)])<-der
+der.sp<-Condc[,c(1,8)]
+der.sp<-na.omit(der.sp)
+tabDc<-merge(tabDc,der.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+colnames(tabDc)<-c("sp","effectif","precision","derangement")
+tabDc$precision<-as.character(tabDc$precision)
+tabDc$derangement<-as.character(tabDc$derangement)
+#meteo
+Condc[,c(10)]<-as.factor(Condc[,c(10)])
+Condc[,c(11)]<-as.factor(Condc[,c(11)])
+Condc[,c(12)]<-as.factor(Condc[,c(12)])
+met1<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(10)])]
+met2<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(11)])]
+met3<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(12)])]
+met4<-paste("Température de l'air de ",Condc[c(1),c(13)],"°C",sep="")
+######################################
+#ajout des seuil d'importance
+dcWetlandSeuil<-merge(tabDc,dataW, by.x="sp",by.y="sp",all.x=T)
+tabDc$seuil[dcWetlandSeuil$effectif>=dcWetlandSeuil$seuilN]<-"National"
+tabDc$seuil[dcWetlandSeuil$effectif>=dcWetlandSeuil$seuilI]<-"International"
+tabDc[is.na(tabDc)]<-"-"
+######################################
+#comptages precedant
+nbTdate<-nlevels(as.factor(dataT$date))
+datedc<-levels(as.factor(dataT$date))[nbTdate]
+dcp1<-levels(as.factor(dataT$date))[nbTdate-1]
+cp1<-dataT[dataT$date==dcp1,]
+cp1<-cp1[,c(1,9)]
+totcp1<-colSums(cp1[c(2)])
+dfcp1<-strftime(as.Date(dcp1, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp2<-levels(as.factor(dataT$date))[nbTdate-2]
+cp2<-dataT[dataT$date==dcp2,]
+cp2<-cp2[,c(1,9)]
+totcp2<-colSums(cp2[c(2)])
+dfcp2<-strftime(as.Date(dcp2, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp3<-levels(as.factor(dataT$date))[nbTdate-3]
+cp3<-dataT[dataT$date==dcp3,]
+cp3<-cp3[,c(1,9)]
+totcp3<-colSums(cp3[c(2)])
+dfcp3<-strftime(as.Date(dcp3, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+dcp4<-levels(as.factor(dataT$date))[nbTdate-4]
+cp4<-dataT[dataT$date==dcp4,]
+cp4<-cp4[,c(1,9)]
+totcp4<-colSums(cp4[c(2)])
+dfcp4<-strftime(as.Date(dcp4, format = "%Y-%m-%d"),"%d-%m-%Y")
+#
+datefdc<-strftime(as.Date(datedc, format = "%Y-%m-%d"),"%d-%m-%Y")
+#tableau des comptages
+tabDcr<-tabDc[,c(1,2)]
+tabCtmp1<-merge(tabDcr,cp1,by.x ="sp",by.y ="TAXO_VERNACUL", all.x=T)
+tabCtmp2<-merge(tabCtmp1,cp2,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+tabCtmp3<-merge(tabCtmp2,cp3,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+tabC<-merge(tabCtmp3,cp4,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+colnames(tabC)<-c("sp",datefdc,dfcp1,dfcp2,dfcp3,dfcp4)
+tabC[is.na(tabC)]<-"-"
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+######################################
+#bilan moyenne du mois de janvier depuis l'origine des donnée
+dataTmois<-dataT[dataT$mois==(ddc[2]),c(1,9)]
+dataTmois$TAXO_VERNACUL<-factor(dataTmois$TAXO_VERNACUL)
+m.mean<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, mean)
+m.sd<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, sd)
+m.sd[is.na(m.sd)]<-0
+m.max<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, max)
+m.min<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, min)
+m.n<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, length)
+#intervalle confiance moyenne
+ci<-qt(0.975, (m.n)) * sqrt((m.sd^2)/(m.n))
+cip<-m.mean+(qt(0.975, (m.n)) * sqrt((m.sd^2)/(m.n)))
+cim<-m.mean+(qt(0.025, (m.n)) * sqrt((m.sd^2)/(m.n)))
+#prepa tab
+m<-cbind(m.mean,m.sd,cim,cip,m.max,m.min,m.n)
+tmp<-tabC[,c(1,2)]
+smois<-merge(tmp,m, by.x="sp", by.y="row.names",all.x=T )
+smois[,c(3:4)]<-round(smois[,c(3:4)],1)
+smois[,c(5:6)]<-round(smois[,c(5:6)],0)
+#classement par ecart
+smois$p[smois[,2]>=smois$m.mean & smois[,2]>=smois$cim]<-"non sig.supérieur"
+smois$p[smois[,2]<smois$m.mean & smois[,2]<smois$cip]<-"non sig.inférieur"
+smois$p[smois[,2]<smois$cim]<-"sig.inférieur"
+smois$p[smois[,2]>smois$cip]<-"sig.supérieur"
+#division tab
+#sig inferieur
+if (dim(smois[smois$p%in% "sig.inférieur",])[1]){
+msi<-smois[,1:8][smois$p%in% "sig.inférieur",]
+msi<-msi[order(msi[,2], decreasing=T),]
+msi$m.sd<-paste("(",msi$cim, "-",msi$cip,")",sep = "")
+msi<-msi[,c(1,2,3,4,7,8)]
+colnames(msi)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(msi)<-seq(1:dim(msi)[1])} else {msi<-"pas de données"}
+#sig superieur
+if (dim(smois[smois$p%in% "sig.supérieur",])[1]){
+mss<-smois[,1:8][smois$p%in% "sig.supérieur",]
+mss<-mss[order(mss[,2], decreasing=T),]
+mss$m.sd<-paste("(",mss$cim, "-",mss$cip,")",sep = "")
+mss<-mss[,c(1,2,3,4,7,8)]
+colnames(mss)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mss)<-seq(1:dim(mss)[1])} else {msi<-"pas de données"}
+#non sig superieur
+if (dim(smois[smois$p%in% "non sig.supérieur",])[1]){
+mnss<-smois[,1:8][smois$p%in% "non sig.supérieur",]
+mnss<-mnss[order(mnss[,2], decreasing=T),]
+mnss$m.sd<-paste("(",mnss$cim, "-",mnss$cip,")",sep = "")
+mnss<-mnss[,c(1,2,3,4,7,8)]
+colnames(mnss)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mnss)<-seq(1:dim(mnss)[1])} else {msi<-"pas de données"}
+#non sig inferieur
+if (dim(smois[smois$p%in% "non sig.inférieur",])[1]){
+mnsi<-smois[,1:8][smois$p%in% "non sig.inférieur",]
+mnsi<-mnsi[order(mnsi[,2], decreasing=T),]
+mnsi$m.sd<-paste("(",mnsi$cim, "-",mnsi$cip,")",sep = "")
+mnsi<-mnsi[,c(1,2,3,4,7,8)]
+colnames(mnsi)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mnsi)<-seq(1:dim(mnsi)[1])} else {msi<-"pas de données"}
+# pour les comparaison et les graphes
+annC<-max(annee)
+annP<-max(annee)-1
+annM<-min(annee)
+
+##############################################
+#graphes
+grw<-function(sp,f=.75,debW=min(dataSP$annee)){
+  dataSP<-dataT[dataT$TAXO_VERNACUL %in% c(sp),]
+  dataSP<-dataSP[dataSP$annee >debW,]
+  #legende graphe
+  Effectif<-dataSP$SommeDeOBSE_NOMBRE
+  Date<-format(dataSP$date, "%d-%m-%Y")
+  val<-paste("moy :",round(mean(dataSP$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSP$SommeDeOBSE_NOMBRE)," - ",
+             "min:",min(dataSP$SommeDeOBSE_NOMBRE))
+  #graphe potly
+    FL <- plot_ly(dataSP, x = ~annee, 
+                y = ~SommeDeOBSE_NOMBRE, name = 'Wetland', 
+                type = 'scatter', 
+                mode = 'lines+markers',showlegend = FALSE,
+                line = list(color = "forestgreen"),color = I('forestgreen'),
+                hovertemplate = paste('%{y:.0f}'))%>%
+    add_lines(y = ~fitted(loess(SommeDeOBSE_NOMBRE ~ annee,data=dataSP,
+                                span=f)),name = "tendance",
+              line = list(color="blue", width = .5),showlegend = FALSE,
+              hovertemplate = paste('%{y:.2f}'))%>%
+    add_trace(y = ~mean(SommeDeOBSE_NOMBRE) , 
+              name = 'moyenne', mode = 'lines',showlegend = FALSE,
+              line = list(color="blue", width = .5, dash = 'dash'),
+              hovertemplate = paste('%{y:.2f}'))%>%
+    layout(yaxis = list(title = sp), 
+           xaxis = list(title = val,zeroline = FALSE),
+           hovermode = "x unified",
+           legend = list(orientation = 'h'))
+  FL}
+```
+
+Dernier comptage Wetland 
+=====================================
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a> 
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a>
+
+<hr/>
+*Analyse :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...`**</a>
+
+<hr/>
+*Autres comptages :*
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html'>`Comptage Wetlands`</a></font>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html' target='_blank'>**Tableaux et data**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### `r typedc`
+```{r}
+valueBox(paste(ddc[3],"/",ddc[2],"/",ddc[1],sep=""), icon = "fa-binoculars")
+```
+
+### **Conditions de comptage :**
+`r met1` ; `r met2` ; `r met3`; `r met4`
+
+```{r}
+knitr::kable(tabDc,align=c("l","c","l","l"))
+```
+
+Column {data-width=300}
+-----------------------------------------------------------------------
+
+### **Effectif total dénombré** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totC, icon = "ion-calculator")
+```
+
+
+### **Limicoles** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[1], icon = "ion-calculator",color="#228B22")
+```
+
+### **Anatidés** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[2], icon = "ion-calculator",color="#228B22")
+```
+
+### **Autres espèces** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[3], icon = "ion-calculator",color="#228B22")
+```
+
+
+###
+Précision du dénombrement : si il y a eu sous-estimation lors du comptage
+
+Dérangement : si nous avons observé un dérangement
+
+Seuil national ou international des effectifs
+
+Condition de comptage : météo lors du comptage
+
+
+Comparaisons
+=====================================
+
+
+Row {data-width=200}
+-----------------------------------------------------------------------
+### **Effectif total dénombré en `r annC`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totC, icon = "ion-calculator", color="#8B8878")
+```
+
+### **Effectif total dénombré en `r annP`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp1, icon = "ion-calculator", color="#8B8878")
+```
+
+### **Effectif total dénombré en `r annP-1`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp2, icon = "ion-calculator", color="#8B8878")
+```
+
+### **Effectif total dénombré en `r annP-2`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp3, icon = "ion-calculator", color="#8B8878")
+```
+
+### **Effectif total dénombré en `r annP-3`** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totcp4, icon = "ion-calculator", color="#8B8878")
+```
+
+
+
+Row {data-width=800}
+-----------------------------------------------------------------------
+
+__Comparaison avec les précedents comptages Wetlands__
+
+###
+
+```{r,echo=FALSE,  results='asis'}
+datatable(tabC,extensions = 'FixedHeader',
+  options = list(dom = 't',pageLength = 500, fixedHeader = TRUE,
+            columnDefs = list(list(className = 'dt-center', targets = 2:dim(tabC)[2]-1)),
+            order = list(1, 'desc')),
+          rownames = FALSE,style="bootstrap") %>%
+  formatStyle('sp')%>%
+  formatStyle(2,fontWeight = c("bold"))%>%
+  formatStyle(2:6, Color = c('blue'))
+
+```
+
+
+Analyses
+=====================================
+__Synthèse des mois de `r months(as.Date(datedc, '%Y-%m-%d'))` depuis 2000__ 
+
+_(ic : intervalle de confiance de la moyenne)_
+
+Row {.tabset .tabset-fade data-width=600}
+-------------------------------------
+### __significativement supérieur à la moyenne__
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mss,align=c("l","c","c","c","c","c"))
+```
+
+### _non significativement supérieur à la moyenne_
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mnss,align=c("l","c","c","c","c","c"))
+```
+
+Row {.tabset .tabset-fade data-width=600}
+-------------------------------------
+### _non significativement inférieur à la moyenne_
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mnsi,align=c("l","c","c","c","c","c"))
+```
+
+
+### __significativement inférieur à la moyenne__
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(msi,align=c("l","c","c","c","c","c"))
+```
+
+Limicoles
+=====================================
+Les limicoles sont de petits échassiers appartenant à l'ordre des Charadriiformes. Ils ont souvent de grandes pattes terminées par 3 longs doigts ainsi qu'un long bec leur permettant de capturer leurs proies enfouies dans le sable ou la vase. Le terme _Limicole_ vient du latin limus, _limon_. Dotés de longueurs de bec différentes, chaque espèce peut se nourrir dans le même milieu, sans qu'il y ait compétition entre elles, leurs proies étant enfouies dans le sol à des profondeurs variables. 
+
+Row {data-width=400}
+-------------------------------------
+### __Ensemble des limicoles__
+
+```{r,echo=FALSE,  results='asis'}
+#limicole
+  dataSPl<-dataT[dataT$TAXO_VERNACUL %in% c(spl),]
+  dataSPl<-aggregate(SommeDeOBSE_NOMBRE~
+                   annee,data=dataSPl,sum)
+    #legende graphe
+    val<-paste("moy :",round(mean(dataSPl$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSPl$SommeDeOBSE_NOMBRE)," - ",
+             "min:",min(dataSPl$SommeDeOBSE_NOMBRE))
+  Effectif<-dataSPl$SommeDeOBSE_NOMBRE
+#figure plotly
+FtotL <-plot_ly(dataSPl, x = ~annee, 
+                 y = ~SommeDeOBSE_NOMBRE, name = 'données wetland', 
+                 type = 'scatter', 
+                 mode = 'lines+markers',
+                 line = list(color = "forestgreen"),color = I('#129612'),
+                 hovertemplate = paste('%{y:.0f}'))%>%
+  add_trace(y = ~mean(SommeDeOBSE_NOMBRE) , 
+            name = 'moyenne', mode = 'lines',
+            line = list(color="blue", width = .5, dash = 'dash'),
+            hovertemplate = paste('%{y:.2f}'))%>%
+add_lines(y = ~fitted(loess(SommeDeOBSE_NOMBRE ~ annee,data=dataSPl,
+                                span=.75)),name = "tendance",
+              line = list(color="blue", width = .5),
+              hovertemplate = paste('%{y:.2f}'))%>%
+  layout(yaxis = list(title = 'Effectifs totaux Limicoles'), 
+         xaxis = list(title ="",zeroline = FALSE),
+        hovermode = "x unified",legend = list(orientation = 'h'),
+                                      title=list(text=val))
+FtotL
+
+```
+
+Column {.tabset .tabset-fade data-width=400}
+-------------------------------------
+### _B.maubèche_
+```{r}
+sp<-"Bécasseau maubèche"
+grw(sp,debW=1989)
+```
+
+
+### _B.variable_
+```{r}
+sp<-"Bécasseau variable"
+grw(sp)
+```
+
+### _B.sander._
+```{r}
+sp<-"Bécasseau sanderling"
+grw(sp)
+```
+
+### _Barge r._
+```{r}
+sp<-"Barge rousse"
+grw(sp)
+```
+
+### _Courlis cen._
+```{r}
+sp<-"Courlis cendré"
+grw(sp)
+```
+
+### _Huîtrier pie_
+```{r}
+sp<-"Huîtrier pie"
+grw(sp)
+
+```
+
+### _Grd Gravelot_
+```{r}
+sp<-"Grand Gravelot"
+grw(sp, f=.8)
+```
+
+### _Trpierre collier_
+```{r}
+sp<-"Tournepierre à collier"
+grw(sp)
+```
+
+### _Pluvier argenté_
+```{r}
+sp<-"Pluvier argenté"
+grw(sp)
+```
+
+### _Pluvier doré_
+```{r}
+sp<-"Pluvier doré"
+grw(sp,f=.9)
+```
+
+### _Che guignette_
+```{r}
+sp<-"Chevalier guignette"
+grw(sp,f=.8)
+```
+
+
+
+Anatidés
+=====================================
+Les Anatidae (ou Anatidés) constituent la plus importante famille de l'ordre des Anseriformes. Elle comprend les canards,les oies, les cygnes et espèces apparentées dont les tadornes les sarcelles, les macreuses...Ce sont des oiseaux aquatiques de taille moyenne à grande, au corps massif, aux pattes courtes et palmées, leur doigt arrière est absent ou court et légèrement surélevé par rapport aux autres doigts. Le bec généralement aplati et arrondi à l'extrémité qui possède la caractéristique commune des Anseriformes, c'est-à-dire que l'intérieur est couvert de lamelles filtrantes.
+
+Row {data-width=400}
+-------------------------------------
+### __Ensemble des anatidés__
+
+```{r,echo=FALSE,  results='asis'}
+#anatides
+  dataSPa<-dataT[dataT$TAXO_VERNACUL %in% c(spc),]
+  dataSPa<-aggregate(SommeDeOBSE_NOMBRE~
+                   annee,data=dataSPa,sum)
+    #legende graphe
+    val<-paste("moy :",round(mean(dataSPa$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSPa$SommeDeOBSE_NOMBRE)," - ",
+             "min:",min(dataSPa$SommeDeOBSE_NOMBRE))
+  Effectif<-dataSPa$SommeDeOBSE_NOMBRE
+ FtotA <-plot_ly(dataSPa, x = ~annee, 
+                 y = ~SommeDeOBSE_NOMBRE, name = 'Wetland', 
+                 type = 'scatter', 
+                 mode = 'lines+markers',
+                 line = list(color = "forestgreen"),color = I('#129612'),
+                 hovertemplate = paste('%{y:.0f}'))%>%
+  add_trace(y = ~mean(SommeDeOBSE_NOMBRE) , 
+            name = 'moyenne', mode = 'lines',
+            line = list(color="blue", width = .5, dash = 'dash'),
+            hovertemplate = paste('%{y:.2f}'))%>%
+add_lines(y = ~fitted(loess(SommeDeOBSE_NOMBRE ~ annee,data=dataSPa,
+                                span=.75)),name = "tendance",
+              line = list(color="blue", width = .5),
+              hovertemplate = paste('%{y:.2f}'))%>%
+  layout(yaxis = list(title = 'Effectifs totaux Anatidés'), 
+         xaxis = list(title ="",zeroline = FALSE),
+hovermode = "x unified",legend = list(orientation = 'h'),
+                                      title=list(text=val))
+FtotA
+
+```
+
+Row {.tabset .tabset-fade data-width=400}
+-------------------------------------
+### _C.colvert_
+```{r}
+sp<-"Canard colvert"
+grw(sp)
+```
+
+### _C.souchet_
+```{r}
+sp<-"Canard souchet"
+grw(sp)
+```
+
+### _C.siffleur_
+```{r}
+sp<-"Canard siffleur"
+grw(sp)
+```
+
+### _C.pilet_
+```{r}
+sp<-"Canard pilet"
+grw(sp)
+```
+
+### _C.Chipeau_
+```{r}
+sp<-"Canard chipeau"
+grw(sp)
+```
+
+### _Bernache C._
+```{r}
+sp<-"Bernache cravant"
+grw(sp)
+```
+
+### _Macreuse M._
+```{r}
+sp<-"Macreuse noire"
+grw(sp, f=.7)
+```
+
+### _Tadorne de B._
+```{r}
+sp<-"Tadorne de Belon"
+grw(sp)
+```
+
+### _Sarcelle Hiver_
+```{r}
+sp<-"Sarcelle d'hiver"
+grw(sp)
+```
+
+
+Podicipedidés
+=====================================
+La familles des Podicipedidés regroupe les Grèbes.La plupart ont un cou assez long. Leurs courtes pattes insérées à l'arrière du corps, rendent la marche très difficile. Ils volent avec des coups d'ailes très rapides, la tête plus bas que le corps et cou tendu. La majorité ont des marques blanches bien visibles sur les ailes. Les grèbes généralement silencieux en dehors de la saison de reproduction. Par contre ils ont une parade nuptiale très complexe. Ils nichent sur un amas flottant de végétaux, fixé à des plantes palustres.
+
+
+Row {.tabset .tabset-fade data-width=900}
+-------------------------------------
+### _Grèbe huppé_
+```{r}
+sp<-"Grèbe huppé"
+grw(sp)
+```
+
+### _Grèbe à cou noir_
+```{r}
+sp<-"Grèbe à cou noir"
+grw(sp,f=.65)
+```
+
+### _Grèbe castagneux_
+```{r}
+sp<-"Grèbe castagneux"
+grw(sp,f=.8)
+```
+
+
+A propos
+=====================================
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Sites de comptage
+
+```{r}
+library(leaflet)
+long<-c(-2.67977,-2.70329,-2.68747,-2.67583,-2.66939,
+        -2.65483,-2.63991,-2.63068,-2.63230,-2.71624,
+        -2.5969,-2.72485,-2.71414,-2.72365)
+lat<-c(48.50261,48.51345,48.49549,48.51085,48.53577,
+       48.52527,48.52344,48.52699,48.53657,48.53165,
+       48.5579,48.55688,48.55514,48.54460)
+nom<-c("pisseoison","la cage","Bourienne","Fronteven","Guette",
+       "Bon-Abri","La Grandville","St Maurice","Beliard","Le Légué","La Cotentin","Martin plage",
+       "Le Roselier","St-Laurent")
+icons <- awesomeIcons(icon = 'fa-binoculars',iconColor = 'darkgreen',
+  library = 'fa', markerColor ='green' )
+m = leaflet() %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+ m = m %>% setView(lng=-2.6631, lat= 48.5150, zoom = 12)
+ m %>% addAwesomeMarkers(long, lat, icon=icons, label=nom)
+  
+```
+
+
+Column {data-width=350}
+-------------------------------------
+Wetlands international organise un comptage coordonné de l'avifaune à l'échelle
+internationale depuis plus de 40 ans. Ces comptages sont réalisés à la mi-janvier et permettent d'évaluer les évolutions des populations d'oiseaux d'eau. 
+
+Le protocole mis oeuvre est le même que pour les comptages mensuels, bien qu'il soit un peu affiné. Le comptage Wetlands se réalise en général sur deux jours afin d'accentuer l'effort de recherche des espèces les plus discrètes.
+
+le cadre des comptages Wetlands, les données à la mi-janvier disponibles en Baie de Saint-Brieuc à partir de 1970 pour la plupart des espèces.
+
+Le comptage débute deux heures avant la marée haute. Les conditions de marées optimales correspondent à une hauteur d'eau à marée haute de 10,30 mètres. Deux équipes se partagent le fond de baie : anse d'Yffiniac et anse de Morieux - pointe des Guettes. Pour les comptages Wetland, l'équipe de la Réserve naturelle est aidé par les bénévoles, notamment du Groupe d'Etudes Ornithologiques des Côtes d'Armor et de Vivarmor nature ainsi que du personnel de l'OFB.
+

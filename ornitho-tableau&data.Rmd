@@ -1,0 +1,715 @@
+---
+title: "Tableaux et data"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #666461;}
+.chart-title {color: #006400;}
+</style>
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(leaflet)
+library(rbokeh)
+library(DT)
+library(questionr)
+library(plyr)
+library(dplyr)
+library(reshape)
+library(formattable)
+####################################
+####################################
+#ouverture des resultats produit par
+#RSERENA-ornitho-bilan.Rmd
+load("ornitho.RData")
+
+#################################
+#ajout des groupes sp
+sp<-c("Bécasseau maubèche",
+      "Bécasseau variable","Bécasseau sanderling","Barge rousse",
+      "Barge à queue noire",
+      "Chevalier gambette","Chevalier guignette",
+      "Courlis cendré","Courlis corlieu","Pluvier argenté","Pluvier doré",
+      "Vanneau huppé","Bécassine des marais","Bécassine sourde",
+      "Chevalier combattant","Chevalier aboyeur",
+      "Chevalier arlequin","Chevalier culblanc",
+      "Grand Gravelot","Huîtrier pie","Pluvier argenté",
+      "Tournepierre à collier",
+      "Avocette élégante","Barge à queue noire",
+      "Bécasseau cocorli","Bécasseau minute")
+tmp<-dataTot[dataTot$RELV_NOM %in% c("Comptage Réserve Naturelle",
+                                 "Comptage Wetlands"),]
+dataLim<-tmp[tmp$TAXO_VERNACUL %in% c(sp),]
+dataLim$TAXO_VERNACUL<-"- Tous les Limicoles"
+dataLim$TAXO_LATIN_C<-"limi"
+dataLim$date<-as.character(dataLim$date)
+dataLim<-aggregate(SommeDeOBSE_NOMBRE~.,data=dataLim,FUN=sum)
+dataLim <- dataLim[order(dataLim$OBSE_DATE),]
+#wetland gr
+ligW<-c(1:4,7:19,22:23,26)#selection des sp
+dataWl<-rbind(dataWl,c("- Tous les Limicoles",
+               colSums(dataWl[ligW,2:dim(dataWl)[2]])))
+dataWl[2:dim(dataWl)[2]]<-lapply(dataWl[2:dim(dataWl)[2]],as.numeric)
+
+###############
+#anatides
+sp<-c("Bernache cravant",
+"Canard chipeau","Canard pilet","Canard siffleur",
+"Canard souchet","Canard colvert","Sarcelle d'hiver","Tadorne de Belon",
+"Macreuse noire","Eider à duvet",
+"Bernache à ventre pâle","Bernache du Pacifique",
+"Macreuse brune","Sarcelle d'hiver",
+"Puffin des Baléares","Oie cendrée")
+tmp<-dataTot[dataTot$RELV_NOM %in% c("Comptage Réserve Naturelle",
+"Comptage Wetlands"),]
+dataAna<-tmp[tmp$TAXO_VERNACUL %in% c(sp),]
+dataAna$TAXO_VERNACUL<-"- Tous les Anatidés"
+dataAna$TAXO_LATIN_C<-"ana"
+dataAna$date<-as.character(dataAna$date)
+dataAna<-aggregate(SommeDeOBSE_NOMBRE~.,data=dataAna,FUN=sum)
+dataAna <- dataAna[order(dataAna$OBSE_DATE),]
+#wetland gr
+ligA<-c(1:7,13,15,16,28:31)#selection des sp
+dataWa<-rbind(dataWa,c("- Tous les Anatidés",
+               colSums(dataWa[ligA,2:dim(dataWa)[2]])))
+dataWa[2:dim(dataWa)[2]]<-lapply(dataWa[2:dim(dataWa)[2]],as.numeric)
+
+#Ardéidés
+sp<-c("Héron garde-boeufs","Grande Aigrette",
+      "Aigrette garzette","Héron cendré","Grand Cormoran")
+tmp<-dataTot[dataTot$RELV_NOM %in% c("Comptage Réserve Naturelle",
+"Comptage Wetlands","Comptage ponctuel complet"),]
+dataArd<-tmp[tmp$TAXO_VERNACUL %in% c(sp),]
+dataArd$TAXO_VERNACUL<-"- Tous les Ardéidés"
+dataArd$TAXO_LATIN_C<-"ardé"
+dataArd$date<-as.character(dataArd$date)
+dataArd<-aggregate(SommeDeOBSE_NOMBRE~.,data=dataArd,FUN=sum)
+dataArd <- dataArd[order(dataArd$OBSE_DATE),]
+#wetland gr
+ligO<-c(4:8)#selection des sp
+dataWo<-rbind(dataWo,c("- tous les Ardéidés",
+               colSums(dataWo[,2:dim(dataWo)[2]])))
+dataWo[2:dim(dataWo)[2]]<-lapply(dataWo[2:dim(dataWo)[2]],as.numeric)
+#Podicipédidés
+sp<-c("Grèbe à cou noir","Grèbe castagneux","Grèbe esclavon",
+      "Grèbe huppé","Grèbe jougris")
+tmp<-dataTot[dataTot$RELV_NOM %in% c("Comptage Réserve Naturelle",
+"Comptage Wetlands", "Comptage ponctuel complet"),]
+dataPod<-tmp[tmp$TAXO_VERNACUL %in% c(sp),]
+dataPod$TAXO_VERNACUL<-"- Tous les Podicipédidés"
+dataPod$TAXO_LATIN_C<-"Pod"
+dataPod$date<-as.character(dataPod$date)
+dataPod<-aggregate(SommeDeOBSE_NOMBRE~.,data=dataPod,FUN=sum)
+dataPod <- dataPod[order(dataPod$OBSE_DATE),]
+#wetland gr
+dataWp<-rbind(dataWp,c("- Tous les Podicipédidés",
+               colSums(dataWp[,2:dim(dataWp)[2]])))
+dataWp[2:dim(dataWp)[2]]<-lapply(dataWp[2:dim(dataWp)[2]],as.numeric)
+#tous sp
+dataAll<-dataTot[dataTot$RELV_NOM %in% c("Comptage Réserve Naturelle",
+                                 "Comptage Wetlands"),]
+dataAll$TAXO_VERNACUL<-"- Toutes les sp. suivies"
+dataAll$TAXO_LATIN_C<-"all"
+dataAll$date<-as.character(dataAll$date)
+dataAll<-aggregate(SommeDeOBSE_NOMBRE~.,data=dataAll,FUN=sum)
+dataAll <- dataAll[order(dataAll$OBSE_DATE),]
+###################################
+#compilation des data + groupe
+dataT<-rbind(dataTot,dataLim,dataAna,dataArd,dataPod,dataAll)
+
+dataT$date<-as.POSIXlt(as.Date(dataT$date, "%d-%m-%Y"))
+#################################################
+#suppression sp particulières
+dataT<-subset(dataT,!(TAXO_VERNACUL  %in% 
+                        c("Melanocorypha Boie, 1828",
+ "Faisan de Colchide","Hirondelle de rivage",
+ "Hirondelle rustique, Hirondelle de cheminée","Plongeons",
+ "Poule-d'eau","Cisticole des joncs","Buse variable",
+ "Bécasse des bois","Grand corbeau","Macareux, Guillemots, Pingouins",
+ "Épervier d'Europe","Labbes (Stercoraires)","Martin-pêcheur d'Europe",
+ "Bruant des roseaux","Bruant lapon","Bruant proyer","Goélands, Mouettes",
+ "Linotte mélodieuse","Pinson des arbres","Pinson du nord","Pipit maritime",
+ "Bruant des neiges","Bruant jaune","Bruant zizi","Bruant jaune"
+ )))
+#################################################
+#calcul par decenies et dernier hivernage
+################################################
+#ajout decenie dans dataT
+dataT$dec<-cut(dataT$annee, breaks =c(1970,1995,2005,2014,annC))
+##################################
+dataC<-dataT[,c(1,4,5,7,9,11,12)]
+#somme par date de comptage
+dataC<-aggregate(SommeDeOBSE_NOMBRE~., data =dataC,sum)
+##################################
+#selction decenie
+p1<-c(1995:2004)
+p2<-c(2005:2014)
+eti1<-"decenie 1995-2004"
+eti2<-"decenie 2005-2014"
+#decenie en cours
+p3<-c(2015: max(dataC$annee))
+eti3<-paste0("decenie 2015-",max(p3))
+#période total RN
+p4<-c(1998: max(dataC$annee))
+eti4<-paste0("période 1998-",max(p4))
+#periode total
+eti7<-paste0("période 1970-",max(p4))
+#periode decenie P1
+dataD1<-dataC[dataC$annee %in% p1,]
+#periode decenie P2
+dataD2<-dataC[dataC$annee %in% p2,]
+#periode decenie P3 decenie en cours
+dataD3<-dataC[dataC$annee %in% p3,]
+#periode decenie P4 1998 a aujourd'hui
+dataD4<-dataC[dataC$annee %in% p4,]
+#resultat moyenne hiver
+dataD1h<-dataD1[dataD1$mois %in% c("11","12","1","2"),]
+D1h<-aggregate(dataD1h[,c(1,7)],by=list(dataD1h$TAXO_VERNACUL),mean)
+D1h<-D1h[,c(1,3)]
+dataD2h<-dataD2[dataD2$mois %in% c("11","12","1","2"),]
+D2h<-aggregate(dataD2h[,c(1,7)],by=list(dataD2h$TAXO_VERNACUL),mean)
+D2h<-D2h[,c(1,3)]
+dataD3h<-dataD3[dataD3$mois %in% c("11","12","1","2"),]
+D3h<-aggregate(dataD3h[,c(1,7)],by=list(dataD3h$TAXO_VERNACUL),mean)
+D3h<-D3h[,c(1,3)]
+dataD4h<-dataD4[dataD4$mois %in% c("11","12","1","2"),]
+D4h<-aggregate(dataD4h[,c(1,7)],by=list(dataD4h$TAXO_VERNACUL),mean)
+D4h<-D4h[,c(1,3)]
+dataCh<-dataC[dataC$mois %in% c("11","12","1","2"),]
+#moy global hiver par sp
+dh<-aggregate(dataCh[,c(1,7)],by=list(dataCh$TAXO_VERNACUL),mean)
+dh<-dh[,c(1,3)]
+#resultat moyen annuel
+D1<-aggregate(dataD1[,c(1,7)],by=list(dataD1$TAXO_VERNACUL),mean)
+D1<-D1[,c(1,3)]
+D2<-aggregate(dataD2[,c(1,7)],by=list(dataD2$TAXO_VERNACUL),mean)
+D2<-D2[,c(1,3)]
+D3<-aggregate(dataD3[,c(1,7)],by=list(dataD3$TAXO_VERNACUL),mean)
+D3<-D3[,c(1,3)]
+D4<-aggregate(dataD4[,c(1,7)],by=list(dataD4$TAXO_VERNACUL),mean)
+D4<-D4[,c(1,3)]
+#moyenne glabal annuel par sp
+D<-aggregate(dataC[,c(1,7)],by=list(dataC$TAXO_VERNACUL),mean)
+D<-D[,c(1,3)]
+####################################
+#moy hivernale max 
+dataD5h<-summaryBy(cbind(SommeDeOBSE_NOMBRE) ~ TAXO_VERNACUL+rec_anneeL, 
+                   data=dataD4h,FUN=c(mean))
+dataD5h <- dataD5h[order(dataD5h$TAXO_VERNACUL, 
+                         -dataD5h$SommeDeOBSE_NOMBRE.mean),]
+D5h <- dataD5h[!duplicated(dataD5h$TAXO_VERNACUL),]
+D5h$gr<-paste0(round(D5h$SommeDeOBSE_NOMBRE.mean,0)," (",D5h$rec_anneeL,")")
+#moy annuel max
+dataD5<-summaryBy(cbind(SommeDeOBSE_NOMBRE) ~ TAXO_VERNACUL+annee, 
+                  data=dataD4,FUN=c(mean))
+dataD5 <- dataD5[order(dataD5$TAXO_VERNACUL, 
+                       -dataD5$SommeDeOBSE_NOMBRE.mean),]
+D5 <- dataD5[!duplicated(dataD5$TAXO_VERNACUL),]
+D5$gr<-paste0(round(D5$SommeDeOBSE_NOMBRE.mean,0)," (",D5$annee,")")
+####################################
+#calcul dernier hiver
+#classement dernier hiver
+dataChr<-dataCh[dataCh$annee >1998,]
+Ch<-aggregate(dataChr[,c(7)],
+              by=list(dataChr$TAXO_VERNACUL, dataChr$rec_anneeL,dataChr$rec_annee),mean)
+Chmax<-aggregate(dataChr[,c(7)],
+                 by=list(dataChr$TAXO_VERNACUL, dataChr$rec_anneeL,dataChr$rec_annee),max)
+names(Chmax)[4] <- "effMax"
+Chmax<-ddply(Chmax, .(Group.1), transform, rng = rank(-rank(effMax)))
+Ch<-ddply(Ch, .(Group.1), transform, rng = rank(-rank(x)))
+Dht<-cbind(Ch,Chmax[,c(4,5)])
+colnames(Dht)<-c("sp","hiv","hivL","moy","rng","max","rngMax")
+#condition periode de l'annee par rapport dernier hiver
+if(ddc[2] %in% c(11, 12, 1,2)) {
+  Dh <- Dht[Dht$hivL == max(Dht$hivL) - 1, ]
+} else {
+  Dh <- Dht[Dht$hivL == max(Dht$hivL), ]
+}
+hiv<-Dh$hiv[1]
+Dh<-Dh[,c(1,4:7)]
+####################################
+#calcul derniere année avec classement rang
+dataCr<-dataC[dataC$annee >1998,]
+C<-aggregate(dataCr[,c(7)],
+             by=list(dataCr$TAXO_VERNACUL, dataCr$annee),mean)
+Cmax<-aggregate(dataCr[,c(7)],
+                by=list(dataCr$TAXO_VERNACUL, dataCr$annee),max)
+names(Cmax)[3] <- "effMax"
+Cmax<-ddply(Cmax, .(Group.1), transform, rng = rank(-rank(effMax)))
+C<-ddply(C, .(Group.1), transform, rng = rank(-rank(x)))
+Dt<-cbind(C,Cmax[,c(3,4)])
+colnames(Dt)<-c("sp","annee","moy","rng","max","rngMax")
+#selection année n-1 et n
+Dtt1<-Dt[Dt$annee==max(Dt$annee-1),]
+Dtt1<-Dtt1[,c(1,3:6)]
+Dtt<-Dt[Dt$annee==max(Dt$annee),]
+Dtt<-Dtt[,c(1,3,5)]
+####################################
+#tab synthese hiver
+tmp<-merge(D1h,D2h,by.x="Group.1",by.y="Group.1",all =T)
+tmp2<-merge(tmp,D3h,by.x="Group.1",by.y="Group.1",all =T)
+tmp3<-merge(tmp2,D4h,by.x="Group.1",by.y="Group.1",all =T)
+tmp4<-merge(tmp3,dh,by.x="Group.1",by.y="Group.1",all =T)
+tmp5<-merge(tmp4,D5h[,c(1,4)],by.x="Group.1",by.y="TAXO_VERNACUL",all =T)
+H<-merge(tmp5,Dh,by.x="Group.1",by.y="sp",all =T)
+H[is.na(H)]<-0
+H<-cbind(H[,1],round(H[,c(2:6)], digits = 0),H[,c(7)],
+         round(H[,c(8:11)], digits = 0))
+eti5<-"moy.max (hiver)"
+eti6<-paste("hiver",hiv,sep=" ")
+eti6a<-paste("moy.",eti6,sep=" ")
+eti6b<-paste("rng.moy. ",eti6,sep=" ")
+eti6c<-paste("max.",eti6,sep=" ")
+eti6d<-paste("rng.max. ",eti6,sep=" ")
+colnames(H)<-c("sp",eti1,eti2,eti3,eti4,eti7,
+               eti5,eti6a,eti6b,eti6c,eti6d)
+##################################
+#tab synthese annuel
+tmp<-merge(D1,D2,by.x="Group.1",by.y="Group.1",all =T)
+tmp2<-merge(tmp,D3,by.x="Group.1",by.y="Group.1",all =T)
+tmp3<-merge(tmp2,D4,by.x="Group.1",by.y="Group.1",all =T)
+tmp4<-merge(tmp3,D,by.x="Group.1",by.y="Group.1",all =T)
+tmp5<-merge(tmp4,D5[,c(1,4)],by.x="Group.1",by.y="TAXO_VERNACUL",all =T)
+tmp6<-merge(tmp5,Dtt1,by.x="Group.1",by.y="sp",all =T)
+A<-merge(tmp6,Dtt,by.x="Group.1",by.y="sp",all =T)
+A[is.na(A)]<-0
+A<-cbind(A[,1],round(A[,c(2:6)], digits = 0),A[,c(7)],
+         round(A[,c(8:13)], digits = 0))
+eti5a<-"moy.annuel max (année)"
+eti5b<-paste("moy.",annC-1,sep=" ")
+eti5c<-paste("rng.moy. ",annC-1,sep=" ")
+eti5d<-paste("max.",annC-1,sep=" ")
+eti5e<-paste("rng.max. ",annC-1,sep=" ")
+eti5f<-paste("moy.",annC,sep=" ")
+eti5g<-paste("max.",annC,sep=" ")
+colnames(A)<-c("sp",eti1,eti2,eti3,eti4,eti7,
+               eti5a,eti5b,eti5c,eti5d,eti5e,
+               eti5f,eti5g)
+
+#####################
+#tab croisé sp rare
+dataSPRare2<-dataSPRare
+dataSPRare2$date<-paste(dataSPRare2$jour,dataSPRare2$mois,dataSPRare2$annee,sep="/")
+dataSPRare2$obs<-1
+dataSPRare2$SommeDeOBSE_NOMBRE[is.na(dataSPRare2$SommeDeOBSE_NOMBRE)] <- 1
+dataSPRare2$SommeDeOBSE_NOMBRE[dataSPRare2$SommeDeOBSE_NOMBRE==0] <- 1
+#tab croisé sp/annee
+#effectif
+dataSPRare2c<-dataSPRare2[,c(1,4,9)]
+dataCsum<-cast(dataSPRare2c, TAXO_VERNACUL ~ annee,max)
+#nb obs
+dataSPRare2o<-dataSPRare2[,c(1,4,11)]
+dataCnb<-cast(dataSPRare2o, TAXO_VERNACUL ~ annee,sum)
+#
+dataSPR<-dataCsum
+for (i in 1:dim(dataCsum)[1]) {
+  for (j in 2:dim(dataCsum)[2]) {
+    dataSPR[i,j]<-paste(dataCsum[i,j],"(",dataCnb[i,j],")",sep="")}}
+#sup zero
+dataSPR[dataSPR=="-Inf(0)"]<-"-"
+dataSPR[dataSPR=="0(0)"]<-"-"
+##############################################################
+#moyenne mensuel par sp
+###############################################################
+mm<-aggregate(dataT[,c(9)],by=list(dataT$TAXO_VERNACUL,
+                                       dataT$mois),mean)
+mm$x<-round(mm$x,0)
+mmr<-reshape(mm,  idvar="Group.1",timevar="Group.2", direction="wide")
+mmr[is.na(mmr)]<-0
+colnames(mmr)<-c("sp","janvier","fevrier","mars","avril","mai","juin","juillet",
+"août","septembre","octobre","novembre","décembre")
+
+```
+
+Importance de la baie {data-icon="fa-sliders"}
+=====================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+###
+
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a> 
+
+<hr/>
+*Analyse :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...**</a>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html'>`Tableaux et data`</a></font>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+## 
+**Les limicoles**
+
+- 36 espèces de limicoles ont été inventoriées depuis les années 1970, dont 12 espèces principales, considérées comme structurantes du peuplement. Les limicoles sont un élément majeur du peuplement ornithologique de l’espace intertidal de la baie. En période hivernale, leur effectif correspond à un tiers du nombre total d’oiseaux du site.
+
+- Sur la période 2009-2019, cinq de ces douze espèces représentent 81,4 % de l'effectif total des limicoles : l'Huîtrier pie (23,9 %), le Bécasseau maubèche (21,3 %), le Bécasseau variable (20,1 %), le Courlis cendré (8,7 %) et le Bécasseau sanderling (7,5 %).
+
+- 10 espèces de limicoles présentent des effectifs d’importance nationale : Bécasseau maubèche (6.7%), Barge rousse (5.3 %) Huîtrier pie (4.8%), Bécasseau sanderling (4 %), Pluvier doré (2.8%), Courlis cendré (2.4%), chevalier combattant (2.5%), Chevalier gambette (1.4%), Chevalier aboyeur (1.1%) et le vanneau huppé (1.0%).
+
+- Le nombre de limicoles augmente progressivement à partir de juin pour atteindre un maximum en décembre-janvier (9040 individus en moyenne), puis décroît jusqu'au mois de mai.
+
+## 
+**Les anatidées**
+
+- 35 espèces d'anatidés ont été inventoriées depuis les années 1970, dont 9 espèces principales considérées comme structurantes de la communauté. Sur la période 2009-2019, cinq espèces représentent 94 % de l'effectif total d'anatidés en période hivernale : Bernache cravant (44,3 %), Macreuse noire (20,4 %), Canard colvert (12,6 %), Canard siffleur (10,4 %), Tadorne de Belon (6,3 %).
+
+- Les effectifs de Bernache cravant sont d’importance internationale (1 % soit 2.2 % de la population nationale) et d’importance nationale pour la Macreuse noire et brune (2.7 %) et le canard pilet (1 %).
+
+- L'effectif d'anatidés augmente progressivement à partir du mois de septembre pour atteindre un maximum aux mois de décembre-janvier (en moyenne 4187 individus), puis décroît jusqu'au mois de mai.
+
+## 
+**Les podicipédidés**
+
+- Les effectifs de grèbes huppés sont d’importance nationale (1,9 %).
+
+
+
+
+Bilan hivernage {data-icon="fa-table"}
+=====================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+<span style="color:green">**Moyennes** des effectifs par hivernage (novembre à février)pour différentes périodes,</span><span style="color:red"> hivernage maximal observé,</span><span style="color:blue"> **moyenne** maximum et classement pour l'`r eti6`.</span>
+
+
+```{r,echo=FALSE,  results='asis'}
+
+datatable(H,
+           extensions = c('Responsive',"Scroller",'Buttons','FixedColumns'),
+  options = list(dom = 'Bt',pageLength = 600, fixedHeader = F,
+            columnDefs = list(list(className = 'dt-center', targets = 2:dim(H)[2]-1)),
+            order = list(0, 'asc'),                
+            deferRender = T,scrollY = 600,
+      scroller = F, 
+      rownames = FALSE,style="bootstrap",
+      buttons = list(
+              list(extend = "pdf",filename = 'Synthèse hivernale',
+title = "Synthèse ornithologique - Bilan de l'hivernage",header = T,
+                   exportOptions = list(stripHtml = FALSE,
+                                        columns = ':visible'),
+                   orientation = 'portrait',
+                   
+                   customize = JS("function(doc){
+                                  doc.styles.tableHeader.color='yellow';
+                                  doc.defaultStyle.alignment = 'left';
+                                  doc.styles.tableHeader.alignment = 'left';
+                                  doc.pageMargins = [10,10,10,10];
+                                  doc.defaultStyle.fontSize = 6;
+                                  doc.styles.tableHeader.fontSize = 7;
+                                  doc.styles.title.fontSize = 9;
+                                  }"
+                                  ))))) %>%
+  formatStyle(c(1:5,8,10),fontWeight = c("bold"))%>%
+  formatStyle(c(8,10),Color = c("gray80"))%>%
+  formatStyle(2:6, Color = c('green'))%>%
+  formatStyle(c(7), Color = c('red'))%>%
+  formatStyle(c(8,10), Color = c('blue'))
+```
+
+
+Bilan annuel {data-icon="fa-table"}
+=====================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+<span style="color:green">**Moyennes** des effectifs par hivernage (novembre à février)pour différentes périodes,</span><span style="color:red"> hivernage maximal observé,</span><span style="color:blue"> **moyenne** maximum et classement pour l'`r eti6`.</span>
+
+
+```{r,echo=FALSE,  results='asis'}
+
+datatable(A,extensions = c('Responsive',"Scroller",'Buttons','FixedColumns'),
+  options = list(dom = 'Bt',pageLength = 600, fixedHeader = F,
+            columnDefs = list(list(className = 'dt-center', targets = 2:dim(H)[2]-1)),
+            order = list(0, 'asc'),                
+            deferRender = T,scrollY = 600,
+      scroller = F,rownames = FALSE,style="bootstrap",
+        buttons = list(
+              list(extend = "pdf",filename = 'Synthèse Annuelle',
+title = "Synthèse ornithologique - Bilan Annuelle",header = T,
+                   exportOptions = list(stripHtml = FALSE,
+                                        columns = ':visible'),
+                   orientation = 'portrait',
+                   
+                   customize = JS("function(doc){
+                                  doc.styles.tableHeader.color='yellow';
+                                  doc.defaultStyle.alignment = 'left';
+                                  doc.styles.tableHeader.alignment = 'left';
+                                  doc.pageMargins = [10,10,10,10];
+                                  doc.defaultStyle.fontSize = 6;
+                                  doc.styles.tableHeader.fontSize = 7;
+                                  doc.styles.title.fontSize = 9;
+                                  }"
+                                  ))))) %>%
+  formatStyle(c(1:5,8),fontWeight = c("bold"))%>%
+  formatStyle(c(8,10),Color = c("gray80"))%>%
+  formatStyle(2:6, Color = c('green'))%>%
+  formatStyle(c(7), Color = c('red'))%>%
+  formatStyle(c(8,10,12,13), Color = c('blue'))
+```
+
+Bilan mensuel {data-icon="fa-table"}
+=====================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+<span style="color:green">**Effectifs moyens mensuels** depuis 2000, pour chaque espèces ou groupes d'espèces.</span>
+
+
+
+```{r,echo=FALSE,  results='asis'}
+
+as.datatable(formattable(mmr, lapply(1:nrow(mmr), function(row) {
+  area(row, col = -1) ~ color_bar("lightblue")})),
+  
+extensions = c('Responsive',"Scroller",'Buttons','FixedColumns'),
+  options = list(dom = 'Bt',pageLength = 600, fixedHeader = F,
+            #columnDefs = list(list(className = 'dt-center', targets = 2:12)),
+            order = list(0, 'asc'),                
+            deferRender = T,scrollY = 600,
+      scroller = F,
+          rownames = FALSE,style="bootstrap",
+                    buttons = list(
+              list(extend = 'excel',filename = 'data-ornitho',
+title = "Synthèse ornithologique - moyennes mensuelles"))
+))%>%
+  formatStyle(c(1),fontWeight = c("bold"))%>%
+  formatStyle(c(2,3,12,13),Color = c("blue"))%>%
+  formatStyle(c(4,5,6,10,11), Color = c('#FFA500'))%>%
+  formatStyle(c(7,8,9), Color = c('#24A845'))
+
+
+              
+
+```
+
+
+Espèces rares {data-icon="fa-book"}
+=====================================
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+###  `r length(SPRare)` espèces rares ou occasionnelles ont été observées en Baie de St Brieuc. **Ensemble des observations :**
+```{r,message=FALSE}
+
+dataSPRare<-dataSPRare[c(1,4,5,6,9)]
+colnames(dataSPRare)<-c("espèce","année","mois","jour","effectifs")
+dataSPRare$espèce<-as.factor(dataSPRare$espèce)
+dataSPRare$année<-as.numeric(dataSPRare$année)
+dataSPRare$mois<-as.numeric(dataSPRare$mois)
+dataSPRare$jour<-as.numeric(dataSPRare$jour)
+
+#table
+  datatable (dataSPRare[order(dataSPRare[,2],decreasing=T), ],
+             filter = "top",  
+    extensions = c("Scroller",'Buttons'),
+    rownames = FALSE,style = "bootstrap",
+    class = "compact",width = "20%",
+    options = list(dom = "Btip",
+                  deferRender = T,scroller = F,
+                 pageLength = 500,
+                 extensions = 'Responsive',
+                                buttons = list(
+              list(extend = 'excel',filename = 'data-Sp_rare',
+title = "Synthèse ornithologique - Ensemble des données espèces rares")),
+      columnDefs = list(list(className = 'dt-center', targets = c(1:4))))) %>%
+   formatStyle('effectifs',color = 'blue', fontWeight = 'bold')
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+
+###  **Synthèse par année.** Valeurs du tableau : *effectif Maximum observé (nombre d’observations)*
+```{r,message=FALSE}
+                   
+datatable (dataSPR %>% select(order(colnames(dataSPR),
+                      decreasing = TRUE)),
+  extensions = c("Scroller",'FixedColumns','Buttons'),
+  rownames = FALSE,style = "bootstrap",
+  options = list(dom = "Bt",style = "bootstrap",
+                 deferRender = T,scroller = F,
+                 pageLength = 100,
+                 extensions = 'Responsive',
+    fixedColumns = list(leftColumns = 1),
+    buttons = list(
+              list(extend = 'pdf',filename = 'Synthèse espèces rares',
+title = "Synthèse ornithologique - espèces rares ou occasionnelles", 
+header = T,
+                   exportOptions = list(stripHtml = T,
+                                        columns = ':visible'),
+                   orientation = 'portrait',pageSize="A3",
+                   
+                   customize = JS("function(doc){
+                                  doc.styles.tableHeader.color='yellow';
+                                  doc.defaultStyle.alignment = 'left';
+                                  doc.styles.tableHeader.alignment = 'left';
+                                  doc.pageMargins = [10,10,10,10];
+                                  doc.defaultStyle.fontSize = 4;
+                                  doc.styles.tableHeader.fontSize = 4;
+                                  doc.styles.title.fontSize = 5;
+                                  }"
+                                  )),
+list(extend = 'excel',filename = 'data-Sp_rare',
+title = "Synthèse ornithologique - Ensemble des données espèces rares"))
+
+))
+    
+
+```
+
+
+
+
+
+
+Data {data-icon="fa-book"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a> 
+
+<hr/>
+*Analyse :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...**</a>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau&data.html'>`Tableaux et data`</a></font>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+Column {data-width=900}
+-----------------------------------------------------------------------
+
+###
+```{r,message=FALSE}
+
+dataTr<-dataTot[c(1,4,5,6,8,9)]
+colnames(dataTr)<-c("espèce","année","mois","jour","type de relevé","effectifs")
+dataTr$espèce<-as.factor(dataTr$espèce)
+dataTr[,5]<-as.factor(dataTr[,5])
+dataTr$année<-as.factor(dataTr$année)
+dataTr$mois<-as.factor(dataTr$mois)
+dataTr$jour<-as.factor(dataTr$jour)
+  datatable (dataTr,filter = "top",  
+    extensions = c("Scroller",'FixedColumns','Buttons'),
+    rownames = FALSE,style = "bootstrap",
+    class = 'compact',
+    options = list(dom = "rBtip",
+               deferRender = T,scroller = F,
+               pageLength = 1000,
+               extensions = 'Responsive',
+               buttons = list(
+              list(extend = 'excel',filename = 'data-Ornitho',
+title = "Synthèse ornithologique - Ensemble des données de comptage")), 
+      columnDefs = list(list(className = 'dt-center', targets = c(1:5))))) %>%
+   formatStyle('effectifs',color = 'blue', fontWeight = 'bold')
+```
+
+

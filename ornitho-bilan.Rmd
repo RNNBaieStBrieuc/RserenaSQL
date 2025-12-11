@@ -1,0 +1,590 @@
+---
+title: "Comptages ornitho - bilan"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style>
+```{css my-content, echo = FALSE,message=FALSE}
+.value-box {
+    height: 15%;}
+```
+
+
+
+```{r,message=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(readxl)
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(leaflet)
+library(rbokeh)
+library(DT)
+library(questionr)
+####################################
+#calcul l'ensemble des elements
+#produit un ornitho.Rdata
+#utilisé pour le shiny et autre script
+###################################
+#ouverture des data
+dataTot <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage.xlsx",
+                                  sheet = 1))
+Cond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage-cond.xlsx",
+                                  sheet = 1))
+lCond <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_CHOI.xlsx",
+                                  sheet = 1))
+#ouverture des seuil Wetlands
+dataW <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),sheet = "seuil"))
+#evol data wetland pour shiny synthèses
+dataWl <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),sheet = "Limicoles"))
+dataWa <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),sheet = "Anatidés"))
+dataWp <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),sheet = "Podicipedidae"))
+dataWo <- as.data.frame(read_excel(paste0(getwd(),"/wetland-France.xls"),sheet = "autre"))
+#####################################
+#recodage variable
+dataTot<-rename.variable(dataTot, "ANNEE", "annee")
+dataTot<-rename.variable(dataTot, "MOIS", "mois")
+dataTot<-rename.variable(dataTot, "JOUR", "jour")
+dataTot<-rename.variable(dataTot, "SOMMEDEOBSE_NOMBRE", "SommeDeOBSE_NOMBRE")
+####################################
+#latin/vernaculaire si vide
+for (i in 1: length(dataTot$TAXO_VERNACU)){
+  if(is.na(dataTot$TAXO_VERNACU[i] == T))
+  {dataTot$TAXO_VERNACUL[i]=dataTot$TAXO_LATIN_C[i]}}
+dataSPRare<-dataTot#tab total pour sp rare
+#####################################
+#selection comptage
+dataTot<-dataTot[dataTot$RELV_NOM %in% 
+                c("Comptage Wetlands","Comptage Réserve Naturelle",
+                  "Comptage ponctuel complet",
+                  "Comptage laridés"),]
+#gestion des dates
+date<-strptime(dataTot$OBSE_DATE, '%Y%m%d')
+dataTot<-cbind (dataTot, date)
+dataTot$jour<-recodeVar(dataTot$jour,list(c(""," ,"," 0"," a"," à"," e")),list("01") )
+dataTot$jour[is.na(dataTot$jour)]<-"01"
+dataTot$date<-strptime(paste(dataTot$jour,dataTot$mois,dataTot$annee, sep="/"),'%d/%m/%Y')
+dataTot<-dataTot[order(dataTot$date,decreasing=T), ]
+dataTot$date<-strptime(dataTot$date, '%Y-%m-%d')
+####################################
+#en numeric
+dataTot$annee<-as.numeric(dataTot$annee)
+dataTot$mois<-as.numeric(dataTot$mois)
+dataTot$jour<-as.numeric(dataTot$jour)
+dataTot$SommeDeOBSE_NOMBRE<-as.numeric(dataTot$SommeDeOBSE_NOMBRE)
+dataSPRare$annee<-as.numeric(dataSPRare$annee)
+dataSPRare$mois<-as.numeric(dataSPRare$mois)
+dataSPRare$jour<-as.numeric(dataSPRare$jour)
+dataSPRare$SommeDeOBSE_NOMBRE<-as.numeric(dataSPRare$SommeDeOBSE_NOMBRE)
+####################################
+#prepap tab pour recodage hiver
+rec_annee<-numeric(length(dataTot$annee))
+for (i in 1:length(dataTot$annee)) {
+  if (dataTot$mois[i]<8) rec_annee[i]<-dataTot$annee[i]-1 
+  else rec_annee[i]<-dataTot$annee[i]}
+rec_anneeL<-paste(substring(rec_annee,3,4),"/",substring(rec_annee+1,3,4),
+                  sep="")
+dataTot<-cbind.data.frame(dataTot,rec_annee,rec_anneeL)
+attach(dataTot)
+###################################
+#suppresion comptage larides, comptage ponctuels complets
+dataT<-dataTot[dataTot$RELV_NOM %in% 
+        c("Comptage Wetlands","Comptage Réserve Naturelle"),]
+#####################################
+####################################
+#dernier comptage
+ddc<-as.numeric(substring(max(dataT$date),c(1,6,9),c(4,7,10)))
+dc<-dataT[dataT$date==max(dataT$date),]
+#######################################
+#########################################
+typedc<-dc$RELV_NOM[1]
+tabDc<-dc[,c(1,9)]
+colnames(tabDc)<-c("sp","effectif")
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+#effectif comptage
+totC<-colSums(tabDc[c(2)])
+#####################################
+#total dernier comptage par groupe
+#limicole
+spl<-c("Bécasseau maubèche",
+      "Bécasseau variable","Bécasseau sanderling","Barge rousse",
+      "Chevalier gambette","Chevalier guignette","Chevalier combattant",
+      "Courlis cendré","Pluvier argenté","Pluvier doré","Avocette élégante",
+      "Grand Gravelot","Huîtrier pie","Chevalier aboyeur",
+      "Chevalier guignette","Barge à queue noire","Chevalier arlequin",
+      "Vanneau huppé","Bécassine des marais","Bécassine sourde",
+      "Tournepierre à collier")
+tabDclimi<-tabDc[tabDc$sp %in% c(spl),]
+totClimi<-colSums(tabDclimi[c(2)])
+#canard
+spc<-c("Bernache cravant",
+      "Canard chipeau","Canard pilet","Canard siffleur",
+      "Canard souchet","Canard colvert","Sarcelle d'hiver","Tadorne de Belon","Macreuse noire")
+tabDccana<-tabDc[tabDc$sp %in% c(spc),]
+totCcana<-colSums(tabDccana[c(2)])
+#autre
+totAutre<-totC-totClimi-totCcana
+totGr<-rbind(totClimi,totCcana,totAutre)
+rownames(totGr)<-c("Limicoles","Anatidés","autres")
+#####################################
+#condition dernier comptage
+Condc<-Cond[Cond$OBSE_DATE==dc$OBSE_DATE[1],]
+lCond<-lCond[,c(1,2)]
+#precision comptage
+Condc[,c(7)]<-as.factor(Condc[,c(7)])
+prec.txt<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(7)])]
+levels(Condc[,c(7)])<-prec.txt
+Condc.sp<-Condc[,c(1,7)]
+Condc.sp<-na.omit(Condc.sp)
+tabDc<-merge(tabDc,Condc.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+#derangement
+Condc[,c(8)]<-as.factor(Condc[,c(8)])
+der<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(8)])]
+levels(Condc[,c(8)])<-der
+der.sp<-Condc[,c(1,8)]
+der.sp<-na.omit(der.sp)
+tabDc<-merge(tabDc,der.sp,by.x="sp",by.y="TAXO_VERNACUL",all.x=T)
+colnames(tabDc)<-c("sp","effectif","precision","derangement")
+tabDc$precision<-as.character(tabDc$precision)
+tabDc$derangement<-as.character(tabDc$derangement)
+tabDc[is.na(tabDc)]<-"-"
+#meteo
+Condc[,c(10)]<-as.factor(Condc[,c(10)])
+Condc[,c(11)]<-as.factor(Condc[,c(11)])
+Condc[,c(12)]<-as.factor(Condc[,c(12)])
+met1<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(10)])]
+met2<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(11)])]
+met3<-lCond$CHOI_NOM[lCond$CHOI_ID==levels(Condc[,c(12)])]
+met4<-paste("Température de l'air de ",Condc[c(1),c(13)],"°C",sep="")
+######################################
+#ajout des seuil d'importance
+dcWetlandSeuil<-merge(tabDc,dataW, by.x="sp",by.y="sp",all.x=T)
+tabDc$seuil[dcWetlandSeuil$effectif>=dcWetlandSeuil$seuilN]<-"National"
+tabDc$seuil[dcWetlandSeuil$effectif>=dcWetlandSeuil$seuilI]<-"International"
+tabDc[is.na(tabDc)]<-"-"
+#####################################
+#comptages precedant
+nbTdate<-nlevels(as.factor(as.character(dataT$date)))
+datedc<-levels(as.factor(as.character(dataT$date)))[nbTdate]
+dcp1<-levels(as.factor(as.character(dataT$date)))[nbTdate-1]
+cp1<-dataT[dataT$date==dcp1,]
+cp1<-cp1[,c(1,9)]
+totpC<-sum(cp1[,2])
+dfcp1<-strftime(as.Date(dcp1, format = "%Y-%m-%d"),"%d-%m-%Y")
+dcp2<-levels(as.factor(as.character(dataT$date)))[nbTdate-2]
+cp2<-dataT[dataT$date==dcp2,]
+cp2<-cp2[,c(1,9)]
+totpC2<-sum(cp2[,2])
+dfcp2<-strftime(as.Date(dcp2, format = "%Y-%m-%d"),"%d-%m-%Y")
+dcp3<-levels(as.factor(as.character(dataT$date)))[nbTdate-3]
+cp3<-dataT[dataT$date==dcp3,]
+cp3<-cp3[,c(1,9)]
+dfcp3<-strftime(as.Date(dcp3, format = "%Y-%m-%d"),"%d-%m-%Y")
+datefdc<-strftime(as.Date(datedc, format = "%Y-%m-%d"),"%d-%m-%Y")
+#tableau des comptages
+tabDcr<-tabDc[,c(1,2)]
+tabCtmp1<-merge(tabDcr,cp1,by.x ="sp",by.y ="TAXO_VERNACUL", all.x=T)
+tabCtmp2<-merge(tabCtmp1,cp2,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+tabC<-merge(tabCtmp2,cp3,by.x ="sp",by.y ="TAXO_VERNACUL",all.x=T )
+colnames(tabC)<-c("sp",datefdc,dfcp1,dfcp2,dfcp3)
+tabC[is.na(tabC)]<-"-"
+#classement du tab dans l'odre des effectif dernier comptage
+tabDc<-tabDc[order(tabDc[,2], decreasing=T),]
+row.names(tabDc)<-seq(1:dim(tabDc)[1])
+####################################
+#tableau annee precedante
+dataTap<-dataT[dataT$annee==(ddc[1]-1) & dataT$mois==(ddc[2]),c(1,9,10)]
+dataTap$date<-as.factor(as.character(dataTap$date))
+tabTaptmp<-reshape(dataTap,idvar="TAXO_VERNACUL",timevar="date", direction="wide")
+tabTap<-merge(tabDcr,tabTaptmp,by.x ="sp",by.y ="TAXO_VERNACUL", all.x=T)
+dfTap<-strftime(as.Date(levels(dataTap$date), format = "%Y-%m-%d"),"%d-%m-%Y")
+colnames(tabTap)<-c("sp",datefdc,dfTap)
+tabTap<-tabTap[order(tabTap[,2], decreasing=T),]
+row.names(tabTap)<-seq(1:dim(tabTap)[1])
+tabTap[is.na(tabTap)]<-"-"
+######################################
+#bilan moyenne du mois depuis 2000
+dataTmois<-dataT[dataT$mois==(ddc[2]) & dataT$annee >1999,c(1,9)]
+dataTmois$TAXO_VERNACUL<-factor(dataTmois$TAXO_VERNACUL)
+m.mean<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, mean)
+m.sd<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, sd)
+m.sd[is.na(m.sd)]<-0
+m.max<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, max)
+m.min<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, min)
+m.n<-tapply(dataTmois[,c(2)], dataTmois$TAXO_VERNACUL, length)
+#intervalle confiance moyenne
+ci<-qt(0.975, (m.n)) * sqrt((m.sd^2)/(m.n))
+cip<-m.mean+(qt(0.975, (m.n)) * sqrt((m.sd^2)/(m.n)))
+cim<-m.mean+(qt(0.025, (m.n)) * sqrt((m.sd^2)/(m.n)))
+#prepa tab
+m<-cbind(m.mean,m.sd,cim,cip,m.max,m.min,m.n)
+tmp<-tabC[,c(1,2)]
+smois<-merge(tmp,m, by.x="sp", by.y="row.names",all.x=T )
+smois[,c(3:4)]<-round(smois[,c(3:4)],1)
+smois[,c(5:6)]<-round(smois[,c(5:6)],0)
+#classement par ecart
+smois$p[smois[,2]>=smois$m.mean & smois[,2]>=smois$cim]<-"non sig.supérieur"
+smois$p[smois[,2]<smois$m.mean & smois[,2]<smois$cip]<-"non sig.inférieur"
+smois$p[smois[,2]<smois$cim]<-"sig.inférieur"
+smois$p[smois[,2]>smois$cip]<-"sig.supérieur"
+#division tab
+#sig inferieur
+if (dim(smois[smois$p%in% "sig.inférieur",])[1]){
+msi<-smois[,1:8][smois$p%in% "sig.inférieur",]
+msi<-msi[order(msi[,2], decreasing=T),]
+msi$m.sd<-paste("(",msi$cim, "-",msi$cip,")",sep = "")
+msi<-msi[,c(1,2,3,4,7,8)]
+colnames(msi)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(msi)<-seq(1:dim(msi)[1])} else {msi<-"pas de données"}
+#sig superieur
+if (dim(smois[smois$p%in% "sig.supérieur",])[1]){
+mss<-smois[,1:8][smois$p%in% "sig.supérieur",]
+mss<-mss[order(mss[,2], decreasing=T),]
+mss$m.sd<-paste("(",mss$cim, "-",mss$cip,")",sep = "")
+mss<-mss[,c(1,2,3,4,7,8)]
+colnames(mss)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mss)<-seq(1:dim(mss)[1])} else {msi<-"pas de données"}
+#non sig superieur
+if (dim(smois[smois$p%in% "non sig.supérieur",])[1]){
+mnss<-smois[,1:8][smois$p%in% "non sig.supérieur",]
+mnss<-mnss[order(mnss[,2], decreasing=T),]
+mnss$m.sd<-paste("(",mnss$cim, "-",mnss$cip,")",sep = "")
+mnss<-mnss[,c(1,2,3,4,7,8)]
+colnames(mnss)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mnss)<-seq(1:dim(mnss)[1])} else {mnss<-"pas de données"}
+#non sig inferieur
+if (dim(smois[smois$p%in% "non sig.inférieur",])[1]){
+mnsi<-smois[,1:8][smois$p%in% "non sig.inférieur",]
+mnsi<-mnsi[order(mnsi[,2], decreasing=T),]
+mnsi$m.sd<-paste("(",mnsi$cim, "-",mnsi$cip,")",sep = "")
+mnsi<-mnsi[,c(1,2,3,4,7,8)]
+colnames(mnsi)<-c("sp",datefdc,"moy","ic","max","min")
+row.names(mnsi)<-seq(1:dim(mnsi)[1])} else {msi<-"pas de données"}
+# pour les comparaison et les graphes
+annC<-max(annee)
+annP<-max(annee)-1
+annM<-min(annee)
+##########################################
+#tab sp rares
+#suppression sp classique et passereaux
+sp<-c("Accenteur mouchet","Aigrette garzette","Alouette des champs","Alouette lulu",
+      "Bouscarle de Cetti","Corneille mantelée","Fauvette des jardins","Gobemouche noir",
+      "Pouillot véloce","Rossignol philomèle","Rousserolle effarvatte","Rousserolle verderolle",
+      "Barge rousse","Bec-croisé des sapins","Bécasse des bois","Bécasseau maubèche",
+      "Bécasseau sanderling","Bécasseau variable","Choucas des tours",
+      "Bergeronnette des ruisseaux","Chevêche d'Athéna, Chouette chevêche","Coucou gris",
+      "Bergeronnette grise","Bergeronnette printanière","Bergeronnette flavéole",
+      "Bernache cravant",
+      "Bernache du Canada","Fauvette à tête noire","Fauvette babillarde","Geai des chênes",
+      "Grosbec casse-noyaux","Martinet noir","Mésange à longue queue","Mésange nonnette",
+      "Bondrée apivore","Bouvreuil pivoine","Bruant des neiges","Bruant des roseaux",
+      "Bruant jaune","Bruant lapon","Bruant proyer","Bruant zizi","Busard cendré",
+      "Busard des roseaux","Busard Saint-Martin","Buse variable","Caille des blés",
+      "Canard chipeau","Canard colvert","Canard pilet","Canard siffleur",
+      "Canard souchet","Perdrix rouge","Pic cendré","Pic épeichette","Pic vert, Pivert",
+      "Chardonneret élégant","Pie-grièche écorcheur","Pie bavarde","Pigeon biset",
+      "Chevalier combattant, Combattant varié",
+      "Chevalier aboyeur","Héron garde-boeufs","Hypolaïs polyglotte",
+      "Pouillot fitis","Phragmite aquatique",
+      "Pouillot de Schwarz, Pouillot de Pallas, Pouillot roitelet",
+      "Chevalier gambette","Chevalier guignette","Chouette hulotte","Pipit spioncelle",
+      "Cigogne blanche","Cigogne noire","Cisticole des joncs","Troglodyte mignon",
+      "Corbeau freux","Cormoran huppé","Corneille noire","Rougegorge familier",
+      "Courlis cendré","Courlis corlieu", "Cygne noir", "Épervier d'Europe",
+      "Étourneau sansonnet","Faisan de Colchide","Faucon crécerelle",
+      "Faucon émerillon","Faucon hobereau","Faucon pèlerin",
+      "Fauvette grisette","Fauvette pitchou","Fou de Bassan","Foulque macroule",
+      "Gobemouche gris","Goéland argenté","Goéland brun","Goéland cendré",
+      "Goéland leucophée","Goéland marin","Goélands, Mouettes",
+      "Gorgebleue à miroir","Grand corbeau","Grand Cormoran","Grand Gravelot",
+      "Grand Labbe","Grèbe à cou noir","Grèbe castagneux",
+      "Grèbe huppé","Grive draine","Grive litorne","Grive mauvis","Grive musicienne",
+      "Guépier d'Europe", "Guillemot de Troïl","Héron cendré",
+ "Hirondelle de fenêtre","Hirondelle de rivage",
+ "Hirondelle rousseline","Hirondelle rustique, Hirondelle de cheminée",
+ "Merle à plastron","Mésange à longue queue, Orite à longue queue",
+ "Huîtrier pie","Hypolaïs polyglotte, Petit contrefaisant","Ibis sacré",
+ "Labbes (Stercoraires)","Linotte mélodieuse","Locustelle tachetée",
+ "Macareux, Guillemots, Pingouins","Macreuse brune","Macreuse noire",
+ "Martin-pêcheur d'Europe","Merle noir","Mésange bleue","Mésange charbonnière",
+ "Milan noir","Milan royal","Moineau domestique","Mouette mélanocéphale",
+ "Mouette rieuse","Mouette tridactyle","Petit pingouin, Pingouin torda",
+ "Phragmite des joncs","Pic épeiche","Pic noir","Pigeon colombin",
+ "Pigeon ramier","Pinson des arbres","Pinson du nord, Pinson des Ardennes",
+ "Pipit farlouse","Pipit maritime","Plongeons","Pluvier argenté","Pluvier doré",
+ "Poule-d'eau","Puffin des Anglais","Puffin des Baléares",
+ "Roitelet à triple bandeau","Roitelet huppé","Rougequeue à front blanc","Rougequeue noir",
+ "Sarcelle d'hiver","Serin cini","Sterne caugek","Sterne pierregarin",
+ "Tadorne casarca, Casarca roux","Tadorne de Belon","Tarier pâtre",
+ "Tarin des aulnes","Torcol fourmilier",
+ "Tournepierre à collier","Tourterelle des bois",
+ "Tourterelle turque","Traquet motteux","Tarier des prés, Traquet tarier",
+ "Vanneau huppé","Verdier d'Europe",
+ "Anatidae Leach, 1820","Puffinus Brisson, 1760","Gavia J. R. Forster, 1788",
+ "Numenius Brisson, 1760" ,"Melanocorypha Boie, 1828",
+ "Barge à queue noire")
+for (i in 1:length(sp)) {
+  dataSPRare<-subset(dataSPRare, dataSPRare$TAXO_VERNACUL != c(sp[i]))}
+SPRare<-unique(dataSPRare$TAXO_VERNACUL)
+#########################################
+#save resultats pour publi comptage
+save.image(file = "ornitho.RData")
+```
+
+Dernier comptage {data-icon="fa-table"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+
+*Bilan du dernier comptage :*
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>`Bilan`</a></font> 
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html' target='_blank'>**Où observer les oiseaux**</a>
+
+<hr/>
+*Analyse :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...**</a>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html' target='_blank'>**Tableaux et data**</a> 
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Dernier `r typedc`
+```{r,message=FALSE}
+valueBox(paste(datefdc,
+  " : Eff. total de ",totC,sep=""), icon = "fa-binoculars")
+```
+
+
+### **Conditions de comptage :**
+`r met1` ; `r met2` ; `r met3`; `r met4`
+```{r,message=FALSE}
+knitr::kable(tabDc,align=c("l","c","l","l"))
+```
+
+
+Column {data-width=300}
+-----------------------------------------------------------------------
+
+### **Limicoles** 
+```{r,message=FALSE}
+valueBox(totGr[1], icon = "ion-calculator",color="#228B22")
+```
+
+### **Anatidés** 
+```{r,message=FALSE}
+valueBox(totGr[2], icon = "ion-calculator",color="#228B22")
+```
+
+### **Autres espèces** 
+```{r,message=FALSE}
+valueBox(totGr[3], icon = "ion-calculator",color="#228B22")
+```
+
+
+### Effectifs du précédent comptage
+
+```{r,message=FALSE}
+valueBox(paste(dfcp1,
+ " : ",totpC,sep=""), icon = "fa-binoculars", color="#8B8878")
+```
+
+### Effectifs du comptage antérieur
+```{r,message=FALSE}
+valueBox(paste(dfcp2,
+ " : ",totpC2,sep=""), icon = "fa-binoculars", color="#8B8878")
+```
+
+
+###
+Précision du dénombrement : si il y a eu sous-estimation lors du comptage
+
+Dérangement : si nous avons observer un dérangement
+
+Seuil national ou international des effectifs
+
+Condition de comptage : météo lors du comptage
+
+Comparaisons {data-icon="fa-columns"}
+=====================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+__Comparaison avec les précedents comptages de `r annC`__
+
+###
+
+```{r,echo=FALSE,  results='asis',message=FALSE}
+datatable(tabC,#extensions = 'FixedHeader',
+  options = list(dom = 't',pageLength = 1000, fixedHeader = TRUE,
+            columnDefs = list(list(className = 'dt-center', targets = 2:dim(tabC)[2]-1)),
+            order = list(1, 'desc'),
+                deferRender = T,
+      scroller = TRUE, extensions = 'Responsive'),
+  
+          rownames = FALSE,style="bootstrap") %>%
+  formatStyle('sp')%>%
+  formatStyle(2,fontWeight = c("bold"))
+
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+
+__Comparaison au mois de `r months(as.Date(datedc, '%Y-%m-%d'))` `r annP`__
+
+###
+```{r,echo=FALSE,  results='asis',message=FALSE}
+datatable(tabTap,#extensions = 'FixedHeader',
+  options = list(dom = 't',pageLength = 100, fixedHeader = TRUE,
+            columnDefs = list(list(className = 'dt-center', targets = 2:dim(tabTap)[2]-1)),
+            order = list(1, 'desc'),
+                            deferRender = T,
+      scroller = TRUE, extensions = 'Responsive'),
+          rownames = FALSE,style="bootstrap") %>%
+  formatStyle('sp')%>%
+  formatStyle(2,fontWeight = c("bold"))
+```
+
+
+Analyses {data-icon="fa-sliders"}
+=====================================
+__Synthèse des mois de `r months(as.Date(datedc, '%Y-%m-%d'))` depuis 2000__ 
+
+_(ic : intervalle de confiance de la moyenne)_
+
+Row {.tabset .tabset-fade data-width=600}
+-------------------------------------
+### __significativement supérieur à la moyenne__
+```{r,echo=FALSE,  results='asis',message=FALSE}
+knitr::kable(mss,align=c("l","c","c","c","c","c"))
+```
+
+### _non significativement supérieur à la moyenne_
+```{r,echo=FALSE,  results='asis',message=FALSE}
+knitr::kable(mnss,align=c("l","c","c","c","c","c"))
+```
+
+Row {.tabset .tabset-fade data-width=600}
+-------------------------------------
+### _non significativement inférieur à la moyenne_
+```{r,echo=FALSE,  results='asis',message=FALSE}
+knitr::kable(mnsi,align=c("l","c","c","c","c","c"))
+```
+
+
+### __significativement inférieur à la moyenne__
+```{r,echo=FALSE,  results='asis',message=FALSE}
+knitr::kable(msi,align=c("l","c","c","c","c","c"))
+```
+
+
+
+
+Methode {data-icon="fa-binoculars"}
+=====================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+### Sites de comptage
+
+```{r,message=FALSE}
+library(leaflet)
+long<-c(-2.67977,-2.70329,-2.68747,-2.67583,-2.66939,
+        -2.65483,-2.63991,-2.63068,-2.63230,-2.71624)
+lat<-c(48.50261,48.51345,48.49549,48.51085,48.53577,
+       48.52527,48.52344,48.52699,48.53657,48.53165)
+nom<-c("pisseoison","la cage","Bourienne","Fronteven","Guette",
+       "Bon-Abri","La Grandville","St Maurice","Beliard","Le Légué")
+icons <- awesomeIcons(icon = 'fa-binoculars',iconColor = 'darkgreen',
+  library = 'fa', markerColor ='green' )
+m = leaflet() %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+ m = m %>% setView(lng=-2.6631, lat= 48.5150, zoom = 13)
+ m %>% addAwesomeMarkers(long, lat, icon=icons, label=nom)
+  
+```
+
+
+Column {data-width=400}
+-------------------------------------
+Un dénombrement du peuplement ornithologique de la Réserve naturelle nationale de la Baie de Saint-Brieuc est réalisé une à deux fois par mois en fonction des conditions de marée. Couplées à des observations plus ponctuelles réalisées par des ornithologues bénévoles et l'équipe de la Réserve, ces opérations de comptage permettent de suivre la distribution des effectifs au cours de la saison d'une part, et de mettre en évidence l'importance de la Baie en matière d'hivernage et de halte migratoire, d'autre part.
+
+Les comptages sont réalisés selon le même protocole depuis 1996. Les conditions de marées optimales correspondent à une hauteur d'eau à marée haute de 10,30 mètres.
+
+Le comptage débute deux heures avant la marée haute. Deux équipes se partagent le fond de baie : anse d'Yffiniac et anse de Morieux - pointe des Guettes. Un minimum de 3 personnes est présent, l'équipe de la Réserve naturelle avec l'aide des bénévoles, notamment du Groupe d'Etudes Ornithologiques des Côtes d'Armor ou de Vivarmor nature ainsi que du personnel de l'OFB.
+
+<a href='https://www.reservebaiedesaintbrieuc.com/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/doc_de_synthese/Synthese_ornithologique.pdf' target='_blank'>Pour en savoir plus vous pouvez télécharger la synthèse ornithologique complète</a>
+

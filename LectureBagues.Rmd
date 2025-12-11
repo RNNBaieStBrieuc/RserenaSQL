@@ -1,0 +1,803 @@
+---
+title: "Lectures de Bagues"
+author: ""
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style> 
+
+```{r setup, include=FALSE}
+####################################
+#initialisation
+library(flexdashboard)
+library(readxl)
+library(leaflet)
+library(mapview)
+library(mapplots)
+library(leafem)
+library(sf)
+library(lubridate)
+library(purrr)
+library(dplyr)
+library(purrrlyr)
+library(DT)
+library(doBy)
+library(questionr)
+library(crosstalk)
+library(htmltools)
+######################################
+#ouverture des data
+dataT <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-lecture_Bagues.xlsx",
+  sheet = 1))
+###############################
+#en numeric
+dataT$ANNEE<-as.numeric(dataT$ANNEE)
+dataT$MOIS<-as.numeric(dataT$MOIS)
+dataT$JOUR<-as.numeric(dataT$JOUR)
+dataT$OBSE_DATE<-as.numeric(dataT$OBSE_DATE)
+dataT$OBSE_SITE_ID<-as.numeric(dataT$OBSE_SITE_ID)
+#gestion date
+dataT$Date<-strptime(dataT$OBSE_DATE,'%Y%m%d')
+#version date pour le classemenet
+dataT$date<-paste(dataT$JOUR,dataT$MOIS,dataT$ANNEE, sep="/")
+#mise en forme coordonnée
+dataT$OBSE_LAT<-gsub("XD","",dataT$OBSE_LAT)
+dataT$OBSE_LON<-gsub("XD","",dataT$OBSE_LON)
+dataT<-rename.variable(dataT, "OBSE_LAT", "Latitude")
+dataT<-rename.variable(dataT, "OBSE_LON", "Longitude")
+dataT$Latitude<-as.numeric(dataT$Latitude)
+dataT$Longitude<-as.numeric(dataT$Longitude)
+###############################
+#selection ob multiples
+#suppression ob unique ww:liste des bagues
+nbObs<-aggregate(dataT$OBSE_BAGUE,list(dataT$OBSE_BAGUE),length)
+
+nbObs[2,2]<-3#exception pour la cignogne
+
+#selection piafs vu plus de 2 fois
+ww<-nbObs[nbObs$x>2,]$Group.1  
+dataTr<-subset(dataT, dataT$OBSE_BAGUE %in% ww)
+#ajout nb obs par site
+nbObsS<-aggregate(dataT$OBSE_BAGUE,list(dataT$OBSE_BAGUE,
+                                        dataT$OBSE_PLACE),length)
+dataTr<-merge(dataTr,nbObsS,
+      by.x =c("OBSE_BAGUE","OBSE_PLACE"), by.y = c("Group.1","Group.2"), all.x = T)
+dataTr<-dataTr[,c(16,3,1,2,13,14,6,15,17)]
+colnames(dataTr)<-c("Date","Espece","Code","Site",
+                    "Latitude","Longitude","annee","date","x")
+#############################
+#tab par sp
+STiBS<-subset(dataTr, dataTr$Espece %in% "Bécasseau sanderling")
+STiBM<-subset(dataTr, dataTr$Espece %in% "Bécasseau maubèche")
+STiHP<-subset(dataTr, dataTr$Espece %in% "Huîtrier pie")
+STiSK<-subset(dataTr, dataTr$Espece %in% "Sterne caugek")
+STiGC<-subset(dataTr, dataTr$Espece %in% "Goéland cendré")
+STiGM<-subset(dataTr, dataTr$Espece %in% "Goéland marin")
+STiMR<-subset(dataTr, dataTr$Espece %in% "Mouette rieuse")
+STiCB<-subset(dataTr, dataTr$Espece %in% "Cigogne blanche")
+#reprojection en wgs
+STiBMi<-st_as_sf(STiBM,crs=4326,coords=c("Longitude","Latitude"))
+sdBM <- SharedData$new(STiBMi)
+#reprojection en wgs
+STiBSi<-st_as_sf(STiBS,crs=4326,coords=c("Longitude","Latitude"))
+sdBS <- SharedData$new(STiBSi)
+#reprojection en wgs
+STiHPi<-st_as_sf(STiHP,crs=4326,coords=c("Longitude","Latitude"))
+sdHP <- SharedData$new(STiHPi)
+#reprojection en wgs
+STiSKi<-st_as_sf(STiSK,crs=4326,coords=c("Longitude","Latitude"))
+sdSK <- SharedData$new(STiSKi)
+#reprojection en wgs
+STiGCi<-st_as_sf(STiGC,crs=4326,coords=c("Longitude","Latitude"))
+sdGC <- SharedData$new(STiGCi)
+#reprojection en wgs
+STiGMi<-st_as_sf(STiGM,crs=4326,coords=c("Longitude","Latitude"))
+sdGM <- SharedData$new(STiGMi)
+#reprojection en wgs
+STiMRi<-st_as_sf(STiMR,crs=4326,coords=c("Longitude","Latitude"))
+sdMR <- SharedData$new(STiMRi)
+#reprojection en wgs
+STiCBi<-st_as_sf(STiCB,crs=4326,coords=c("Longitude","Latitude"))
+sdCB <- SharedData$new(STiCBi)
+
+
+```
+
+
+
+
+B.maubèche {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersBM}
+ bscols(div(strong("Bécasseau maubèche")),
+        div(em("Calidris canutus")),
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdBM,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableBM}
+sdBM%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = T,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations du Bécasseau maubèche
+    
+```{r mapBM}
+tailleC<-STiBM$x*2
+tailleC[tailleC>30]<-10
+
+fBM<-leaflet(sdBM) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 2)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%
+            addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fBM%>% addPolylines(STiBM$Longitude, STiBM$Latitude,
+               stroke = T,grou="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiBM$Code,"<br/>",
+                               "date:",STiBM$Date,"<br/>",
+                               "site:",STiBM$Site,"<br/>",
+                               "nb obs:",STiBM$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color = "blue",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+fBM
+```
+
+
+
+B.sanderling {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersBS}
+    bscols(div(strong("Bécasseau sanderling")),
+        div(em("Calidris alba")),
+
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdBS,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableBS}
+sdBS%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = TRUE,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations du Bécasseau sanderling
+    
+```{r mapBS}
+tailleC<-STiBS$x
+tailleC[tailleC>20]<-10
+
+fBS<-leaflet(sdBS) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 2)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fBS%>% addPolylines(STiBS$Longitude, STiBS$Latitude,
+               stroke = T,group="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiBS$Code,"<br/>",
+                               "date:",STiBS$Date,"<br/>",
+                               "site:",STiBS$Site,"<br/>",
+                               "nb obs:",STiBS$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color = "blue",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+```
+
+
+H.pie {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersHP}
+ bscols(div(strong("Huîtrier pie")),
+        div(em("Haematopus ostralegus")),
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdHP,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableHP}
+sdHP%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = T,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations du Huîtrier pie
+    
+```{r mapHP}
+tailleC<-STiHP$x/10
+#tailleC[tailleC>30]<-10
+
+fHP<-leaflet(sdHP) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 4)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%
+            addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fHP%>% addPolylines(STiHP$Longitude, STiHP$Latitude,
+               stroke = T,grou="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiHP$Code,"<br/>",
+                               "date:",STiHP$Date,"<br/>",
+                               "site:",STiHP$Site,"<br/>",
+                               "nb obs:",STiHP$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color = "blue",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+fHP
+```
+
+
+
+S.caugek {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filterSK}
+    bscols(div(strong("Sterne caugek")),
+        div(em("Thalasseus sandvicensis")),
+
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdSK,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableSK}
+sdSK%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = TRUE,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations des Sternes caugek
+    
+```{r mapSK}
+tailleC<-STiSK$x
+tailleC[tailleC>30]<-5
+
+fSK<-leaflet(sdSK) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 3)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fSK%>% addPolylines(STiSK$Longitude, STiSK$Latitude,
+               stroke = T,group="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiSK$Code,"<br/>",
+                               "date:",STiSK$Date,"<br/>",
+                               "site:",STiSK$Site,"<br/>",
+                               "nb obs:",STiSK$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color ="darkgreen",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+```
+
+
+
+
+Goél.cendré {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersGC}
+    bscols(div(strong("Goéland cendré")),
+        div(em("Larus canus")),
+
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdGC,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableGC}
+sdGC%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = TRUE,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations des Goélands cendrés
+    
+```{r mapGC}
+tailleC<-STiGC$x*3
+tailleC[tailleC>30]<-10
+
+fGC<-leaflet(sdGC) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 4)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fGC%>% addPolylines(STiGC$Longitude, STiGC$Latitude,
+               stroke = T,group="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiGC$Code,"<br/>",
+                               "date:",STiGC$Date,"<br/>",
+                               "site:",STiGC$Site,"<br/>",
+                               "nb obs:",STiGC$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color ="darkgreen",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+```
+
+Goél.marin {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersGM}
+ bscols(div(strong("Goéland marin")),
+        div(em(" Larus marinus")),
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdGM,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableGM}
+sdGM%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = T,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations du Goéland marin
+    
+```{r mapGM}
+tailleC<-STiGM$x/10
+#tailleC[tailleC>30]<-10
+
+fGM<-leaflet(sdGM) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 4)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%
+            addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fGM%>% addPolylines(STiGM$Longitude, STiGM$Latitude,
+               stroke = T,grou="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiGM$Code,"<br/>",
+                               "date:",STiGM$Date,"<br/>",
+                               "site:",STiGM$Site,"<br/>",
+                               "nb obs:",STiGM$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color = "darkgreen",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+fGM
+```
+
+
+M.rieuse {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersMR}
+    bscols(div(strong("Mouette rieuse")),
+        div(em("Chroicocephalus ridibundus")),
+
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdMR,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableMR}
+sdMR%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = TRUE,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations des Mouettes rieuses
+    
+```{r mapMR}
+tailleC<-STiMR$x
+tailleC[tailleC>30]<-5
+
+fMR<-leaflet(sdMR) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 4)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fMR%>% addPolylines(STiMR$Longitude, STiMR$Latitude,
+               stroke = T,group="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiMR$Code,"<br/>",
+                               "date:",STiMR$Date,"<br/>",
+                               "site:",STiMR$Site,"<br/>",
+                               "nb obs:",STiMR$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color ="darkgreen",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+fMR
+
+```
+
+
+Cig.blanche {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filtersCB}
+    bscols(div(strong("Cigogne blanche")),
+        div(em("Ciconia ciconia")),
+
+
+filter_select(
+  id = "code",
+  label = "Individu n°",
+  sharedData = sdCB,multiple=F,
+  group = ~Code))
+
+```
+
+
+
+```{r datatableCB}
+sdCB%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 400,
+      scroller = TRUE,
+      initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"),
+      
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,4,5,6)))))
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des observations des Cigognes blanches
+    
+```{r mapCB}
+tailleC<-STiCB$x
+tailleC[tailleC>30]<-5
+
+fCB<-leaflet(sdCB) %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')%>%
+  setView(lng=-2.6631, lat= 48.5150, zoom = 5)%>%
+  addProviderTiles("CartoDB.Positron", group = "cartoDB")%>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery") %>%addLayersControl(overlayGroups =c("trace","observation"),
+                baseGroups = c("cartoDB", "WorldImagery"),
+                options = layersControlOptions(collapsed = T))%>%
+  #hideGroup("trace") %>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+
+fCB%>% addPolylines(STiCB$Longitude, STiCB$Latitude,
+               stroke = T,group="trace",
+               color = "#8B0000", weight = 5, opacity = 0.5)%>%
+addCircleMarkers(popup=paste("indvidu:",STiCB$Code,"<br/>",
+                               "date:",STiCB$Date,"<br/>",
+                               "site:",STiCB$Site,"<br/>",
+                               "nb obs:",STiCB$x),
+                   radius = tailleC,weight = 10,opacity = 1,
+                   color ="#CD5B45",
+                   stroke = T,fillOpacity = 1, group="observation")
+
+fCB
+```
+

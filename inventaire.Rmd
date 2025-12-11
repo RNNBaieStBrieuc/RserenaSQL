@@ -1,0 +1,431 @@
+---
+title: "Inventaire"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Acces a la base de donnees", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/inventaireLC.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#008B00;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0fc90f;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0e510e;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: #CCCCCC}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style>
+```{css my-content, echo = FALSE}
+.value-box {
+    height: 15%;}
+```
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+#initialisation
+library(DT)
+library(readxl)
+library(doBy)
+library(reshape2)
+library(crosstalk)
+####################################
+#ouverture des data
+taxo <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/taxo.xlsx",sheet = 1))
+dateMAJ<-file.info("C:/Serena2Data/SerenaR/taxo.xlsx")[,4]
+obs <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_OBSE.xlsx",
+  sheet = 1))
+site <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_SITE.xlsx",
+  sheet = 1))
+###################################
+#reduction data site sans coordonnées centroide
+site<-site[,c(1:3)]
+#gestion des sites
+site$reg<-""
+site$reg[grep("_1005_",site$SITE_ASCEND_C)]<-"ZPS-horsRN"
+site$reg[grep("_1007_",site$SITE_ASCEND_C)]<-"RN"
+site$reg[grep("_1017_",site$SITE_ASCEND_C)]<-"ZSC"
+site$reg[site$reg ==""]<-"hors-N2000"
+site$reg[site$SITE_ID ==1003]<-"N2000"
+#habitat
+site$hab<-""
+site$hab[grep("_1005_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1008_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1010_",site$SITE_ASCEND_C)]<-"estran"
+site$hab[grep("_1011_",site$SITE_ASCEND_C)]<-"estran"
+site$hab[grep("_1046_",site$SITE_ASCEND_C)]<-"dunes"
+site$hab[grep("_1038_",site$SITE_ASCEND_C)]<-"herbus"
+site$hab[grep("_1045_",site$SITE_ASCEND_C)]<-"herbus"
+site$hab[grep("_1012_",site$SITE_ASCEND_C)]<-"estuaire-ZPR"
+site$hab[grep("_1017_",site$SITE_ASCEND_C)]<-"falaise-ZSC"
+site$hab[grep("_1035_",site$SITE_ASCEND_C)]<-"subtidal"
+site$hab[grep("_1042_",site$SITE_ASCEND_C)]<-"subtidal"
+site$hab[grep("_1043_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1087_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1089_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[grep("_1090_",site$SITE_ASCEND_C)]<-"estran-horsRN"
+site$hab[site$SITE_ID ==1007]<-"estran"
+site$hab[site$SITE_ID ==1091]<-"HS"
+site$hab[site$SITE_ID ==1001]<-"HS"
+#finalidsation data
+tmp<-merge(obs,taxo,by.x="OBSE_TAXO_ID",by.y="ID TAXON REFERENCE",all.x = T)
+data<-merge(tmp,site,by.x="OBSE_SITE_ID",by.y="SITE_ID")
+#suppression Z Pseudo-taxons
+data<-data[data$OBSE_TAXO_ID !=	"100000",]
+#################################
+#aggrgation par groupe taxo
+#NOM LATIN REFERENCE,list(GROUPE TAXONOMIQUE,NOM LATIN REFERENCE)
+tmp<-aggregate(data[,11],list(data[,10],data[,11]),length)
+nbSP<-aggregate(tmp[,2],list(tmp[,1]),length)
+#aggregation par site(region)
+#NOM LATIN REFERENCE,list(GROUPE TAXONOMIQUE,NOM LATIN REFERENCE,reg)
+tmp<-aggregate(data[,11],list(data[,10],data[,11],data[,18]),length)
+tmp<-aggregate(tmp[,2],list(tmp[,1],tmp[,3]),length)
+nbSP_reg<-reshape(tmp,idvar="Group.1",timevar="Group.2", direction="wide")
+nbSP_reg<-merge(nbSP,nbSP_reg,by.x="Group.1",by.y="Group.1",all=T)
+#aggregation detail habitat
+#taxo_latin ref,list(groupe-taxo,latinC,hab)
+tmp<-aggregate(data[,11],list(data[,10],data[,11],data[,19]),
+               length)
+tmp<-aggregate(tmp[,2],list(tmp[,1],tmp[,3]),length)
+nbSP_hab<-reshape(tmp,idvar="Group.1",timevar="Group.2", direction="wide")
+#suppression HS habitat non affecté
+nbSP_hab<-nbSP_hab[,-c(8)]
+##################################
+#tableau gloabal nb especes
+nbSP_tot<-merge(nbSP_reg,nbSP_hab,by.x="Group.1",by.y="Group.1")
+rownames(nbSP_tot)<-nbSP_tot[,1] ; nbSP_tot<-nbSP_tot[,-1]
+#changement ordre colonne
+nbSP_tot<-nbSP_tot[,c( 1,6,7,9,11,3,10,8,12)]
+colnames(nbSP_tot)<-c("total","Dunes","Estran","Estuaire","Prés-salés",'total RN',"Falaise","Estran(hors RN)","subtidal")
+#nb sp total par habitats
+nbT_hab<-colSums(nbSP_tot,na.rm =T)
+##################################
+#liste especes par region
+#$GROUPE TAXONOMIQUE/latin ref/non vernaculaire/reg
+listSp<-unique(data[,c(10,11,12,18)])
+listSp_reg <- as.data.frame(acast(listSp,
+                                  listSp$`NOM LATIN REFERENCE`~reg,length))
+listSp_reg<-merge(unique(listSp[,c(1:3)]),listSp_reg,by.y="row.names",
+                  by.x="NOM LATIN REFERENCE", all.y = T)
+###################################################
+#liste especes par habitat
+#$GROUPE TAXONOMIQUE/latin ref/non vernaculaire/hab
+listSp2<-unique(data[,c(10,11,12,19)])
+listSp_hab <- as.data.frame(acast(listSp2,
+                                  listSp2$`NOM LATIN REFERENCE`~hab,length))
+listSp_hab<-merge(unique(listSp2[,c(1:3)]),listSp_hab,by.y="row.names",
+                  by.x="NOM LATIN REFERENCE", all.y = T)
+#liste espece en rn
+dataRN<-data[data$reg %in%c("RN"),]
+##################################
+#data tab obs sp
+dateObs<-unique(data[,c(11,13,14,15)])
+
+
+#tableau global liste especes
+listSp_tot<-merge(listSp_reg,listSp_hab,by.x="NOM LATIN REFERENCE",
+                by.y="NOM LATIN REFERENCE", all=T)
+listSp_tot<-listSp_tot[,-c(8,9)]
+listSp_tot[is.na(listSp_tot)]<-""
+listSp_tot[listSp_tot==0]<-""
+listSp_tot[listSp_tot==1]<-"X"
+colnames(listSp_tot)<-c("sp","gr","nFr","hors-N2000","RN","N2000-ZPS",                       "N2000-ZSC","Dunes","Estran",
+                    "Estran (horsRN)","Estuaire","Falaise",
+                    "Prés-salés","HS","Subtidal")
+listSp_tot<-listSp_tot[,c(1,2,3,8,9,11,13,5,
+                          12,10,15,6,7,4)]
+#ajout date obs
+listSp_tot<-merge(listSp_tot,dateObs,by.x="sp",
+                by.y="NOM LATIN REFERENCE", all=T)
+listSp_tot$`DATE PREM OBS`<-format(listSp_tot$`DATE PREM OBS`, "%d/%m/%Y")
+listSp_tot$`DATE DERN OBS`<-format(listSp_tot$`DATE DERN OBS`, "%d/%m/%Y")
+colnames(listSp_tot)[15] <- "Premiere Obs"
+colnames(listSp_tot)[16] <- "Drniere Obs"
+colnames(listSp_tot)[17] <- "Nb Obs"
+#transform inteactif
+sd <- SharedData$new(listSp_tot)
+```
+
+# nombre de taxons {data-icon="fa-table"}
+
+## Column {data-width="250"}
+
+### nombre d'observation
+
+```{r}
+valueBox(dim(obs)[1]-1, icon = "ion-calculator", color="#00CD00")
+```
+
+### nombre d'observation sur la RN
+
+```{r}
+valueBox(dim(dataRN)[1], icon = "ion-calculator", color="#00CD00")
+```
+
+### nombre de taxon
+
+```{r}
+valueBox(dim(taxo)[1], icon = "ion-calculator",color="#008B00")
+```
+
+### nombre de taxon sur la RN
+
+```{r}
+nbRN<-nbT_hab[6]
+names(nbRN)<-""
+valueBox(nbRN, icon = "ion-calculator",color="#008B00")
+```
+
+### 
+
+-   <a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-inventaires.html' target='_blank'>**Ensemble des inventaires benthiques mené en Baie de Saint-brieuc**</a>
+
+-   <a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-ResTroph.html' target='_blank'>**cartes interactives des campagnes benthique -programme ResTroph**</a> 
+
+-   <a href='http://www.pierrehh.info/SerenAtlas.aspx?bd=jnhoegchniflcf' target='_blank'>**Atlas cartographique**</a>
+
+## Column {data-width="800"}
+
+### 
+
+```{r,echo=FALSE,  results='asis'}
+datatable(nbSP_tot,
+          extensions = c("Scroller",'Buttons','FixedColumns'),
+          rownames = T,style = "bootstrap",class = "compact",
+  options = list(dom = 'Bt',pageLength = 50, fixedHeader = TRUE,
+                  deferRender = T,scrollY = 600,
+  columnDefs = list(list(className = 'dt-center', targets =c(1:9))
+                  ,list(visible = F,targets = c(1))),
+  
+  buttons = list('excel',
+              list(extend = "pdf",filename = 'Biodiversité',
+title = "Synthèse des nombre de taxons",header = T,
+                   exportOptions = list(stripHtml = FALSE,
+                                        columns = ':visible'),
+                   orientation = 'portrait',
+                   customize = JS("function(doc){
+                                  doc.styles.tableHeader.color='yellow';
+                                  doc.defaultStyle.alignment = 'cente';
+                                  doc.styles.tableHeader.alignment = 'left';
+                                  doc.pageMargins = [20,10,10,10];
+                                  doc.defaultStyle.fontSize = 9;
+                                  doc.styles.tableHeader.fontSize = 9;
+                                  doc.styles.title.fontSize = 9;
+                                  }"
+                                  ))),
+
+  initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}")
+  ))%>%
+  formatStyle(c(1,6),fontWeight = c("bold"))%>%
+  formatStyle(2:5, Color = c('blue'))%>%
+  formatStyle(7:9, Color = c('green'))
+```
+
+# liste taxons {data-icon="fa-columns"}
+
+## Column {data-width="300"}
+
+### 
+
+```{r filters}
+bscols(
+  list(
+filter_select(
+  id = "sp",
+  label = "_       liste des taxons",
+  sharedData = sd,
+  group = ~sp),
+filter_select(
+  id = "sp",
+  label ="_       nom vernaculaire",
+  sharedData = sd,
+  group = ~nFr),
+  filter_select(
+    id = "gr",
+    label = "_       groupe taxonomique",
+    sharedData = sd,
+    group = ~gr)))
+
+```
+
+## Column {data-width="800"}
+
+### 
+
+```{r datatable}
+sd %>%
+  datatable(
+    extensions = c("Scroller", "Buttons", "FixedColumns"),
+    rownames = FALSE,
+    style = "bootstrap",
+    class = "compact",
+    options = list(
+      dom = 'Bfrt',
+  paging = FALSE,          # ✅ pas de pagination
+  scrollY = "1200px",      # ✅ hauteur suffisante pour voir tout
+  scrollCollapse = TRUE,
+  deferRender = TRUE,
+  scroller = FALSE,         # ❌ important : ne pas activer le scroller ici
+      fixedHeader = TRUE,
+      buttons = c('colvis', 'excel'),
+      fixedColumns = TRUE,
+      columnDefs = list(
+        list(className = 'dt-center', targets = c(1, 3:13)),
+        list(visible = FALSE, targets = c(11:16))
+      ),
+      initComplete = htmlwidgets::JS(
+        "function(settings, json) {",
+        "$(this.api().table().container()).css({'font-size': '10pt'});",
+        "}"
+      )
+    )
+  ) %>%
+  formatStyle(2:7, color = 'blue') %>%
+  formatStyle(9:14, color = 'green') %>%
+  formatStyle(8, fontWeight = "bold")
+
+
+
+```
+
+# Au total {data-icon="fa-book"}
+
+## Column {data-width="150"}
+
+### **Origine des données :**
+
+Cet inventaire floro-faunistique du fond de la baie de Saint-Brieuc est issues de la base de données SERENA de la Réserve naturelle. Les données sont issues des organismes impliqués dans la gestion du site et d'un réseau actif de bénévoles.
+
+### 
+
+![logo serena](logo/taxo.ico) `Base de donnée Serena2`
+
+Ensemble des scripts sont développés sous R Markdown
+
+![logo Rserena](logo/Rserena.png) `RSerena` ![logo R](logo/RLogo.png)
+
+### mise à jour des data
+
+```{r}
+valueBox(format(dateMAJ,'%d %B %Y'), icon = "ion-ios-filing", col="info")
+```
+
+## Column {data-width="150"}
+
+***Sur la Réserve naturelle :***
+
+### nombre de taxon
+
+```{r}
+nbRN<-nbT_hab[6]
+names(nbRN)<-""
+valueBox(nbRN, icon = "fa-binoculars",color="#008B00")
+```
+
+### sur les dunes
+
+```{r}
+nbD<-nbT_hab[2]
+names(nbD)<-""
+valueBox(nbD, icon = "fa-frog",color="#008B00")
+```
+
+### sur l'estran
+
+```{r}
+nbE<-nbT_hab[3]
+names(nbE)<-""
+valueBox(nbE, icon = "fa-feather-alt",color="#008B00")
+```
+
+###  sur les Prés-salés
+
+```{r}
+nbPS<-nbT_hab[5]
+names(nbPS)<-""
+valueBox(nbPS, icon = "fa-dove",color="#008B00")
+```
+
+### dans l'estuaire
+
+```{r}
+nbEs<-nbT_hab[4]
+names(nbEs)<-""
+valueBox(nbEs, icon = "fa-fish",color="#008B00")
+```
+
+## Column {data-width="150"}
+
+***A proximité :***
+
+### en subtital
+
+```{r}
+nbShorsRN<-nbT_hab[9]
+names(nbShorsRN)<-""
+valueBox(nbShorsRN, icon = "fa-anchor",color="#27408B")
+```
+
+### sur les falaises
+
+```{r}
+nbFhorsRN<-nbT_hab[7]
+names(nbFhorsRN)<-""
+valueBox(nbFhorsRN, icon = "fa-google-wallet",color="#27408B")
+```
+
+### sur l'estran (hors RN)
+
+```{r}
+nbEhorsRN<-nbT_hab[8]
+names(nbEhorsRN)<-""
+valueBox(nbEhorsRN, icon = "fa-feather-alt",color="#27408B")
+```
+
+
+## Column {data-width="300"}
+
+L'atlas cartographique des taxons est accessible [ici](http://www.pierrehh.info/SerenAtlas.aspx?bd=jnhoegchniflcf)
+
+### **Données benthos :**
+
+Cinq campagnes de prélèvements benthiques ont été conduites depuis 1987 sur l'espace intertidal du fond de baie de Saint-Brieuc et sutidal proche :
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-inventaires.html' target='_blank'>**liste ccomplete des espèces benthique de fond de baie**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-ResTroph.html' target='_blank'>**Carte interactive de répartition des espèces**</a> 
+
+
+*Programme ResTroph :*
+
+[En savoir plus sur le programme ResTroph](https://www.reservebaiedesaintbrieuc.com/gerer/strategie-scientifique/programmes-de-recherche-en-cours/restroph)
+
+### **Données ornithologiques :**
+
+Les données sont issues des différents protocoles de comptages ornithologiques (comptages Réserve naturelle, comptage Wetlands, comptages laridés, comptages ponctuels complets pour une espèce), depuis 1970.
+
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/doc_de_synthese/Synthese_ornithologique.pdf' target='_blank'>Pour en savoir plus vous pouvez télécharger la synthèse ornithologique complète</a>
+
+[Bilan du dernier comptage ornithologique](https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html)
+
+[Importance et site d'observation de l'avifaune](https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/SitesObs.html)

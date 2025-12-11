@@ -1,0 +1,294 @@
+---
+title: "Benthos-inventaires"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+
+
+      
+---
+
+<style>                     
+.navbar {
+  background-color:#CDBE70;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #e7d679;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #544b20;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: #CCCCCC}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style>
+
+ 
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(DT)
+#initialisation
+library(readxl)
+library(doBy)
+library(reshape2)
+library(crosstalk)
+library(htmltools)
+####################################
+#ouverture des data
+taxo <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/taxo.xlsx",sheet = 1))
+dateMAJ<-file.info("C:/Serena2Data/taxo2.xlsx")[,4]
+obsG <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_OBSE.xlsx",
+  sheet = 1))
+site <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_SITE.xlsx",
+  sheet = 1))
+invG <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-RNF_RELV.xlsx",
+  sheet = 1))
+###################################
+#reduction data site sans coordonnées centroide
+site<-site[,c(1:3)]
+#selection des inventaire
+inv<-invG[invG$RELV_ID %in% c("1003","1007"#,"1027"GdC2004
+                              ,"1037","1039","1042","1043",
+                              "1045","1050","1054","1057",
+                              "1058","1059","1060"),]
+#selection des obs coorespondant au inv
+obs<-obsG[obsG$OBSE_RELV_ID %in% inv$RELV_ID,]
+#finalisation data
+tmp<-merge(obs,taxo,by.x="OBSE_TAXO_ID",by.y="ID TAXON REFERENCE",all.x = T)
+data<-merge(tmp,inv,by.x="OBSE_RELV_ID",by.y="RELV_ID")
+#################################
+#aggrgation par groupe taxo
+# $ NOM LATIN REFERENCE/ $ GROUPE TAXONOMIQUE
+tmp<-aggregate(data[,14],list(data[,10],data[,11]),length)
+nbSP<-aggregate(tmp[,2],list(tmp[,1]),length)
+#aggregation par protocoles
+# $ NOM LATIN REFERENCE/  $ RELV_NOM
+Sp_prot<-aggregate(data[,11],list(data[,11],data[,16]),length)
+#################################►
+#tab croisé
+listSp_prot<-reshape(Sp_prot,idvar="Group.1",timevar="Group.2",
+                     direction="wide")
+listSp_prot[is.na(listSp_prot)]<-""
+sp<-listSp_prot[,1]
+listSp_prot[listSp_prot>=1]<-"X"
+listSp_prot[,1]<-sp
+colnames(listSp_prot)<-gsub("x.", "",colnames(listSp_prot) )
+#ajout systematique
+listSp_prot<-merge(listSp_prot,taxo,by.x="Group.1",by.y="NOM LATIN REFERENCE")
+listSp_prot<-listSp_prot[,c(1,16,#sp,gr
+                            2,4,5,6,7,#campagne
+                            14,9,10,#meuble
+                            11,12,#rocheux
+                            3,8,13#sub
+                            #,19,20#orde/famille
+                            )]
+names(listSp_prot)[1]<-"sp"
+#suppression categories non benthique (poissons)
+listSp_prot<-listSp_prot[!listSp_prot$'GROUPE TAXONOMIQUE' %in% c(
+        "Plantes (Plantae)","Chromistes (Chromista)",
+        "Champignons (Fungi)","Poissons (Pisces)"),]
+#classement par groupe taxonomique
+listSp_prot<-listSp_prot[order(listSp_prot$'GROUPE TAXONOMIQUE',
+                               listSp_prot$sp),]
+#rename
+colnames(listSp_prot)<-c("sp","gr","1987 (1)","2001 (2)","2010 (3) ","2011 (3)", "2019 (4)","suivi bivalves (5)","obs. litto (6)","inv. benthos (7)",
+"champs Bocs (8)","estran rocheux (7)","subtidal 1987 (1)","subtidal 2019 (4)", "inv. GNB (9)"#,"ordre","famille"
+)
+#transform inteactif
+sd <- SharedData$new(listSp_prot)
+##################################
+#nb taxon par habitats
+roch<-data[data$RELV_NOM %in% c("inventaire estran rocheux",
+                                "inventaire Champ bloc"),]
+nbR<-length(unique(roch$'NOM LATIN REFERENCE'))
+meuble<-data[data$RELV_NOM %in% c("Benthos 1987-intertidal","Benthos 2001",                 "inventaire Benthos","Benthos 2010","Benthos 2011",                  "Benthos 2019-intertidal" ,"Suivi dymanique bivalves",
+                                  "Benthos_suivi OPNL" ),]
+nbM<-length(unique(meuble$'NOM LATIN REFERENCE'))
+sub<-data[data$RELV_NOM %in% c("Benthos 1987-subtidal",
+                               "Benthos 2019-subtidal"),]
+nbS<-length(unique(sub$'NOM LATIN REFERENCE'))
+nb<-length(unique(data$'NOM LATIN REFERENCE'))
+```
+
+
+
+liste taxons {data-icon="fa-columns"}
+=====================================
+
+Column { data-width=250 data-padding=10}
+-------------------------------------
+
+###
+
+```{r filters}
+bscols(#widths = c(6, 10, 10),
+  list(
+filter_select(
+  id = "sp",
+  label = "-         liste des taxons",
+  sharedData = sd,
+  group = ~sp),
+  filter_select(
+    id = "gr",
+    label = "-        groupe taxonomique",
+    sharedData = sd,
+    group = ~gr)))
+
+```
+
+
+### nb. de taxons
+```{r}
+valueBox(nb, icon = "ion-calculator",color="#00868B")
+```
+###
+
+nb taxon estran rocheux : **`r nbR`** 
+
+nb taxon du substrat meuble : **`r nbM`** 
+
+nb de taxon en zone subtidale : **`r nbS`**
+
+ 
+ 
+###
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-ResTroph.html' target='_blank'>**Cartes des Campagnes benthiques**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/inventaire.html' target='_blank'>**Acces à l'ensemble des inventaires de la biodiversité**</a>
+
+<a href='http://www.pierrehh.info/SerenAtlas.aspx?bd=jnhoegchniflcf' target='_blank'>**Atlas cartographique**</a> (SerenAltas).
+
+<hr/>
+
+
+
+
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+### 
+
+
+```{r datatable}
+
+
+sd%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller",'Buttons','FixedColumns'),
+    rownames = F,
+    style = "bootstrap",
+    class = "hover cell-border compact",width = "20%",
+    options = list(dom = 'Brtp',pageLength = 50, fixedHeader = TRUE,
+                   buttons = c('excel'),fixedColumns = TRUE,
+  columnDefs = list(list(className = 'dt-center', targets =c(1:14))
+  #,list(visible = F,targets = c(14:16))
+  ),
+  initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}"))) %>%
+  formatStyle(3:10, Color = c('green'))%>%
+  formatStyle(11:12, Color = c('brown'))%>%
+  formatStyle(13:15, Color = c('blue'))
+
+
+
+```
+
+
+
+
+Sources {data-icon="fa-book"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+### **Autres données naturalistes :**
+
+* Le bilan des inventaires floristique et faunistique du fond de la baie de Saint-Brieuc issues de la base de données SERENA de la Réserve naturelle est accessibe [ici ](https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/inventaire.html)
+
+* L'intégralité des observations de la base SERENA est accessible [ici ](https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/inventaireLC.html)
+
+* L'atlas cartographique (SerenAtlas) [ici] (http://www.pierrehh.info/SerenAtlas.aspx?bd=jnhoegchniflcf)
+
+
+
+###
+![logo serena](logo/taxo.ico)
+`Base de donnée Serena2`
+
+Ensemble des scripts sont développés sous R Markdown
+
+![logo Rserena](logo/Rserena.png)
+`RSerena`
+![logo R](logo/RLogo.png)
+
+### mise à jour des data 
+
+```{r}
+valueBox(format(dateMAJ,'%d %B %Y'), icon = "ion-ios-filing", col="info")
+```
+
+
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+
+
+### **Données des données de benthos :**
+
+* **Les campagnes benthiques intertidales :**
+
+(1) Gros, P., Hamon, D., 1988. Typologie biosédimentaire de la Baie de Saint-Brieuc (Manche ouest) et estimation de la biomasse des catégories trophiques macrozoobenthiques, IFREMER.
+
+(2) Le Mao P., Retiere C., Plet M., 2002. Les peuplements benthiques intertidaux de la baie de Saint-Brieuc. IFREMER-Museum d’Histoire Naturelle-dinard-Diren Bretagne, 23p+annexes.
+
+(3) Ponsero A., Sturbois, 2014, Assemblages benthiques et faciés sédimentaires des substrats meubles intertidaux du fond de baie de Saint-Brieuc - Cartographie, analyse et évolution de 1987 à 2011. Réserve Naturelle Baie de Saint-Brieuc, 196 pages.
+
+(4) Programme ResTroph, 2019. En savoir plus [**En savoir plus**](http://www.reservebaiedesaintbrieuc.com/restroph/)
+
+<a href='https://www.reservebaiedesaintbrieuc.com/gerer/strategie-scientifique/programmes-de-recherche-en-cours/restroph' target='_blank'>**Acces aux cartes interactives des campagnes**</a>
+
+* **Les données dans le cadre de suivis :**
+
+(5) données de la Réserve Naturelle Nationale de la baie de Saint-Brieuc dans le cadre du suivi annuel du peuplement de mollusques bivalves.
+
+(6) données de la Réserve Naturelle Nationale de la baie de Saint-Brieuc dans le cadre l’observatoire Patrimoine Naturel Littoral (RNF).
+
+(7) autres données extraites de la base de données SERENA de la Réserve Naturelle Nationale de la baie de Saint-Brieuc (dont les inventaires de Florence Gully et Marc Cochu,[estran 22).](http://nature22.com/estran22/estran.html)
+
+* Les données issus des travaux bibliographique de :
+
+(8) Bernard M., 2012. Les habitats rocheux intertidaux sous l’influence d’activités anthropiques : structure, dynamique et enjeux de conservation. Université de Brest. 421p.
+
+
+(9) Le Mao P., Godet L., Fournier J., Desroy N., Gentil F., Thiébault E., Pourinet LaL.urent (2019). Atlas de la faune marine invertébrée du golfe Normano-Breton. 7 volumes. Éditions de la Station biologique de Roscoff.
+
+
+* **Les campagnes benthiques subtidales :**
+
+(1) Gros, P., Hamon, D., 1988. Typologie biosédimentaire de la Baie de Saint-Brieuc (Manche ouest) et estimation de la biomasse des catégories trophiques macrozoobenthiques, IFREMER.
+
+(4) Programme ResTroph, 2019. En savoir plus [**En savoir plus**](https://www.reservebaiedesaintbrieuc.com/gerer/strategie-scientifique/programmes-de-recherche-en-cours/restroph)
+
+
+

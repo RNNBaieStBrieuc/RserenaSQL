@@ -1,0 +1,364 @@
+---
+title: "Ou voir les oiseaux en Baie de Saint-Brieuc ?"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#4682B4;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #0686f0;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #0d416d;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: blue}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #666461;}
+.chart-title {color: #006400;}
+</style>
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+####################################
+#initialisation
+library(readxl)
+library(questionr)
+library(lattice)
+library(chron)
+library(gplots)
+library(doBy)
+library(RColorBrewer)
+library(sf)
+library(sfheaders)
+library(leaflet)
+library(crosstalk)
+library(leafem)
+library(DT)
+library(lubridate)
+library(stringr)
+library(plyr)
+library(dplyr)
+library(reshape)
+####################################
+#pas d'utilisation du Rdata car 
+#actuellement pas de prise en compte des site dans le Rdata
+#ouverture des data
+dataG <- as.data.frame(read_excel(
+  "C:/Serena2Data/SerenaR/R-requPostgreSQL-comptage-site.xlsx",
+                                  sheet = 1))
+####################################
+#recodage variable
+dataG<-rename.variable(dataG, "ANNEE", "annee")
+dataG<-rename.variable(dataG, "MOIS", "mois")
+dataG<-rename.variable(dataG, "JOUR", "jour")
+dataG<-rename.variable(dataG,"SOMMEDEOBSE_NOMBRE", "SommeDeOBSE_NOMBRE")
+###################################
+#dernier comptage
+####################################
+dataT<-dataG
+#gestion date
+dataT$date<-strptime(dataT$OBSE_DATE,'%Y%m%d')
+#suppresion comptage larides, comptage ponctuels complets
+dataT<-dataT[dataT$RELV_NOM %in% 
+        c("Comptage Wetlands","Comptage Réserve Naturelle"),]
+#calage date wetland
+dataT$jour[dataT$RELV_NOM %in% c("Comptage Wetlands")]<-15
+dataT$jour<-recodeVar(dataT$jour,list(c(""," ,","0"," 0"," a"," à"," e")),list(1) )
+#en numeric
+dataT$annee<-as.numeric(dataT$annee)
+dataT$mois<-as.numeric(dataT$mois)
+dataT$jour<-as.numeric(dataT$jour)
+dataT$SommeDeOBSE_NOMBRE<-as.numeric(dataT$SommeDeOBSE_NOMBRE)
+dataT$date<-strptime(paste(dataT$jour,dataT$mois,dataT$annee, sep="/"),'%d/%m/%Y')
+dataT<-dataT[order(dataT$date,decreasing=T), ]
+####################################
+#latin/vernaculaire si vide
+for (i in 1: length(dataT$TAXO_VERNACU)){
+  if(is.na(dataT$TAXO_VERNACU[i] == T))
+  {dataT$TAXO_VERNACUL[i]=dataT$TAXO_LATIN_C[i]}}
+#####################################
+#####################################
+#dernier comptage
+ddc<-as.numeric(substring(max(dataT$date),c(1,6,9),c(4,7,10)))
+dc<-dataT[dataT$date==max(dataT$date),]
+#mise en forme coordonnée
+dc$OBSE_LAT<-gsub("XD","",dc$OBSE_LAT)
+dc$OBSE_LON<-gsub("XD","",dc$OBSE_LON)
+dc<-rename.variable(dc, "OBSE_LAT", "lat")
+dc<-rename.variable(dc, "OBSE_LON", "long")
+dc$lat<-as.numeric(dc$lat)
+dc$long<-as.numeric(dc$long)
+######################################
+#total dernier comptage par groupe
+tabDc<-dc[,c(1,9)]
+colnames(tabDc)<-c("sp","effectif")
+#effectif comptage
+totC<-colSums(tabDc[c(2)])
+#limicole
+spl<-c("Bécasseau maubèche",
+      "Bécasseau variable","Bécasseau sanderling","Barge rousse",
+      "Chevalier gambette","Chevalier guignette","Chevalier combattant",
+      "Courlis cendré","Pluvier argenté","Pluvier doré","Avocette élégante","Spatule blanche",
+      "Grand Gravelot","Huîtrier pie","Chevalier aboyeur",
+      "Chevalier guignette","Barge à queue noire","Chevalier arlequin",
+      "Vanneau huppé","Bécassine des marais","Bécassine sourde",
+      "Tournepierre à collier")
+tabDclimi<-tabDc[tabDc$sp %in% c(spl),]
+totClimi<-colSums(tabDclimi[c(2)])
+#canard
+spc<-c("Bernache cravant",
+      "Canard chipeau","Canard pilet","Canard siffleur",
+      "Canard souchet","Canard colvert","Sarcelle d'hiver","Tadorne de Belon",
+      "Macreuse noire")
+tabDccana<-tabDc[tabDc$sp %in% c(spc),]
+totCcana<-colSums(tabDccana[c(2)])
+#autre
+totAutre<-totC-totClimi-totCcana
+totGr<-rbind(totClimi,totCcana,totAutre)
+rownames(totGr)<-c("Limicoles","Anatidés","autres")
+#########################################
+#ajout comptage ponctuel du mois
+##########################################
+dataP<-dataG[dataG$RELV_NOM %in% 
+        c("Comptage ponctuel complet"),]
+#en numeric
+dataP$annee<-as.numeric(dataP$annee)
+dataP$mois<-as.numeric(dataP$mois)
+dataP$jour<-as.numeric(dataP$jour)
+dataP$SommeDeOBSE_NOMBRE<-as.numeric(dataP$SommeDeOBSE_NOMBRE)
+dataP$date<-strptime(paste(dataP$jour,dataP$mois,dataP$annee, sep="/"),'%d/%m/%Y')
+dataP<-dataP[order(dataP$date,decreasing=T), ]
+####################################
+#latin/vernaculaire si vide
+for (i in 1: length(dataP$TAXO_VERNACU)){
+  if(is.na(dataP$TAXO_VERNACU[i] == T))
+  {dataP$TAXO_VERNACUL[i]=dataP$TAXO_LATIN_C[i]}}
+#si avant 15 du mois ajout mois precedant
+ if(ddc[3]<15){
+   if(ddc[2]>1){#cas autre mois que debut janvier
+dataP<-dataP[dataP$annee==ddc[1]&dataP$mois==ddc[2]|
+    dataP$annee==ddc[1]&dataP$mois==ddc[2]-1&dataP$jour>15,]
+txt_obsMois<-paste(month(ddc[2]-1,label=T),"/",month(ddc[2],label=T),
+                   ddc[1],sep=" ")} else{dataP<-dataP[dataP$annee==ddc[1]&dataP$mois==ddc[2]|
+    dataP$annee==ddc[1]&dataP$mois==12&dataP$jour>15,]
+txt_obsMois<-paste(month(12,label=T),ddc[1]-1,"/",month(ddc[2],label=T), ddc[1],sep=" ")}}
+#si apres le 15 juste le mois en cpurs
+ if(ddc[3]>=15){
+   dataP<-dataP[dataP$annee==ddc[1]&dataP$mois==ddc[2],]
+ txt_obsMois<-paste(month(ddc[2],label=T),ddc[1],sep=" ")
+ }
+dataP<-na.omit(dataP)
+#coordonnee
+#mise en forme coordonnée
+dataP$OBSE_LAT<-gsub("XD","",dataP$OBSE_LAT)
+dataP$OBSE_LON<-gsub("XD","",dataP$OBSE_LON)
+dataP<-rename.variable(dataP, "OBSE_LAT", "lat")
+dataP<-rename.variable(dataP, "OBSE_LON", "long")
+dataP$lat<-as.numeric(dataP$lat)
+dataP$long<-as.numeric(dataP$long)
+dc<-rbind(dc,dataP)
+#######################################
+#recode site
+dc$OBSE_PLACE<-str_split_fixed(dc$OBSE_PLACE, "/", 2)[,2]
+#ordre dc
+tmdcp2<-dc[order(dc$SommeDeOBSE_NOMBRE,decreasing=T), ]
+
+
+```
+
+Sites d'observation {data-icon="ion-compass"}
+=====================================
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+###
+
+*Bilan du dernier comptage :*
+
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-bilan.html'>**Bilan**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/VisuelBilanComptage.pdf' target='_blank'>**Bilan du comptage en image**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/BilanComptagePDF.pdf' target='_blank'>**Bilan en pdf**</a>
+
+<font size="4">
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-SitesObs.html'>`Où observer les oiseaux`</a></font> 
+
+<hr/>
+*Analyse :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-limicoles.html' target='_blank'>**Limicoles**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-anatides.html' target='_blank'>**Anatidés**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-autres.html' target='_blank'>**Ardéidés, Podicipédidés...**</a>
+
+<hr/>
+*Autres comptages :*
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-Wetlands.html' target='_blank'>**Comptage Wetlands**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-larides.html' target='_blank'>**Comptage Laridés**</a>
+
+<hr/>
+*Evolution et bilan :*
+
+<a href='https://rnbaiestbrieuc.shinyapps.io/ornitho-synthese/' target='_blank'>**Synthèse ornithologique**</a>
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-tableau-data.html' target='_blank'>**Tableaux et data**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/ornitho-doc.html' target='_blank'>**Documentation et information**</a>
+
+<hr/>
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Dates_comptage.pdf' target='_blank'>**Dates de comptage**</a>
+
+
+
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+### Le fond de la baie de Saint-Brieuc est classé en Réserve Naturelle Nationale. **Les meilleurs sites d'observation ** (cliquer sur les marqueurs)
+
+```{r}
+ptObs<-data.frame(long=c(-2.67977,-2.70329,-2.68747,-2.677547,-2.66939,
+        -2.65483,-2.63991,-2.63068,-2.63230,-2.71624,
+        -2.71414,-2.59912,-2.696157,-2.676415,-2.652109),
+lat=c(48.50261,48.51345,48.49549,48.512244,48.53577,
+       48.52527,48.52344,48.52699,48.53657,48.53165,
+       48.55514,48.55718,48.503434,48.511274,48.52375),
+nom=c("<b>Pisseoison</b>","<b>la cage</b>",
+       "<b>Bourienne</b>","<b>l'hôtellerie</b>","<b>Guette</b>",
+       "<b>Bon-Abri</b>","<b>La Grandville</b>",
+       "<b>St Maurice</b>","<b>Beliard</b>","<b>Le Légué</b>",
+       "<b>Pointe du Roselier</b>","<b>La Cottentin</b>",
+      "<b>la ville aux oies</b>","<b>Fronteven</b>","<b>Dunes de Bon-Abri</b>"),
+txt=c("Deux heures avant la marée haute, les conditions sont idéales afin d'observer les anatidés qui profitent du flot pour rejoindre le haut d'estran par les filières.",
+       "C'est l'endroit idéal à marée haute pour observer de grands groupes de limicoles (Bécasseaux, Barge rousse, Courlis cendré, Huîtrier pie.) qui y viennent dormir et se toiletter en attendant que la marée ne redescende pour se nourrir à nouveau. On peut régulièrement observer un ou deux Faucons pèlerins posés sur l'estran ou en chasse derrière les limicoles.",
+       "Il est possible d'y observer des oiseaux toute la journée. Mais une heure avant la marée haute, de nombreux canards se regroupent sur les pentes de la filière. En période migratoire, en plus des résidents habituels, le site accueille très régulièrement des espèces parfois assez rare mais qui ne restent généralement pas longtemps (Bécasseau tacheté, Goéland bourgmestre, Balbuzard pêcheur, Circaète Jean-le-Blanc, Spatule, Oies cendrée, des moissons, rieuse ou naines .)",
+       "Un observatoire vous permet d'observer les groupes de limicoles ou d'anatidés présents même à marée basse le long de la filière. Un martin-pêcheur pourra vous tenir compagnie.",
+       "A marée haute, ces sites sont propices à l'observation des oiseaux pélagiques. On peut y observer en l'air les grands planeurs : Fous de bassan, Puffins, Labbes ., et sur l'eau les plongeurs : Macreuses, Harles huppés, Pingouins torda.",
+       "A l'est, l'anse de Morieux présente l'avantage de proposer des conditions d'observations beaucoup plus rapprochées, notamment sur la plage de Bon Abri. Les zones humides situées à l'ouest sont l'occasion d'aller observer des passereaux nicheurs (Tarier pâtre, Cisticole des joncs, Phragmite des joncs) ou migrateurs (le Traquet motteux, Bruant des neiges.).",
+       "Le site de Grandville constituent de reposoirs pour les limicoles (Huîtrier pie, Courlis cendré, Barge rousse, Bécasseaux sanderling.), les sternes (surtout caugek) et les laridés, dont un les Mouettes mélanocéphales. C'est d'ailleurs le lieu idéal, en baie, pour admirer l'arrivée au dortoir des milliers de mouettes et de goélands à la tombée du jour.",
+       "Même si les effectifs dénombrés dans l'anse de Morieux sont moins importants que ceux de l'anse d'Yffiniac, il se forme à marée haute des reposoirs comme à Saint-Maurice qui, lorsqu'ils ne sont pas dérangés, accueillent une diversité de limicoles toute aussi intéressante et peu éloigné du sentier.",
+       "C'est un spot d'observation  à marée haute pour rechercher grèbes, plongeons, macreuses, Eiders à duvet et Puffins des Baléares...",
+       "Un arrêt au port du Légué peut réserver quelques surprises. Les vasières accueillent quelques limicoles tout au long de l'année et les crèches de Tadornes de Belon utilisent régulièrement cette zone pour s'alimenter. A marée haute, l'enrochement abrite des reposoirs de Tournepierre à collier, Chevalier gambette...",
+       "La pointe du Roselier se révèle comme l'un des meilleurs sites d'observation pour les oiseaux pélagiques. Dès le mois de juillet, les radeaux de Puffins des Baléares sont détectables à la longue-vue, surtout par mer calme. On observe également sternes, Guifettes noires, Labbes parasites, pomarins et Grands Labbes. À partir d'octobre et novembre, les alcidés s'y font plus nombreux avec des groupes de Macreuses noires où peuvent s'y glissent quelques Eiders à duvet, Macreuses brunes ou Hareldes boréales.",
+       "La Cotentin constitue aussi un spot d'observation idéal pour observer les passages automnaux de passereaux qui peuvent atteindre les effectifs exceptionnels. C'est un spot d'observation idéal à marée haute pour rechercher les grèbes, les plongeons, les macreuses, Eiders à duvet. Les Puffins des Baléares y sont souvent présents en grand nombre de juillet à décembre, atteignant des pics de plus de 1 000 individus notamment en période estivale.","Avec un point de vue sur les prés-salés, deux panneaux d’information l’un expliquant le phénomène des marées qui caractérisent la baie de Saint-Brieuc, l’autre présentant les richesses floristiques et faunistiques des prés-salés.",
+      "Un point d'observation à été aménagé sur le site de Fronteven offrant un point de vue sur les prés-salés et sur l'estran. A proximité, un observatoire est équipé de panneaux de reconnaissance des espèces d'oiseaux.",
+      "Au sein des dunes de Bon-Abri un observatoire situé en bordure d'un étang permet d'observer foulques, poules d'eau, canards, grèbes..."),
+icone=c("binoculars","binoculars","binoculars","fa-store-alt","fa-leanpub","fa-binoculars","fa-binoculars","fa-binoculars",
+        "fa-leanpub","fa-binoculars","fa-binoculars","fa-binoculars",
+        "fa-leanpub","fa-picture-o","fa-picture-o" ),
+col=c("darkgreen","darkgreen","darkgreen","brown","blue",
+      "darkgreen","darkgreen","darkgreen","blue","darkgreen",
+      "darkgreen","darkgreen","blue","brown","brown"),
+ing=c("<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/piesseoison.jpg' height='80' width='100'>", 
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/cage.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/bourienne.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/observatoire.jpg' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/guette.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/bon-abri.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/grandville.jpg' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/St_Maurice-JV.jpg' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/beliard.jpg' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/port.jpg' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/roselier.jpg' height='80' width='180'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/cotentin.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/ville-aux-oies.JPG' height='80' width='100'>",
+"<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/fronteven.jpg' height='80' width='100'>","<img src='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/carte_interactive/bon-abri.jpg' height='80' width='100'>"))
+icons <- awesomeIcons(icon =ptObs$icone,iconColor =ptObs$col,
+  library = 'fa', markerColor ='green' )
+m = leaflet() %>% addTiles(attribution=
+'<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>
+Map data &copy; 
+  <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+ m = m %>% setView(lng=-2.6631, lat= 48.5280, zoom = 13)
+ m %>% addAwesomeMarkers(ptObs$long, ptObs$lat, icon=icons, popup = paste(ptObs$nom,"<br/>",ptObs$txt,"<br/>",ptObs$ing))
+m %>% addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) 
+  
+```
+
+
+A voir en ce moment {data-icon="ion-eye"}
+=====================================
+Column {data-width=300}
+-------------------------------------
+
+```{r}
+#reprojection en wgs
+dc<-st_as_sf(dc,crs=4326,coords=c("long","lat"))
+
+
+dc<-dc[order(dc$SommeDeOBSE_NOMBRE,decreasing = T),]
+sd <- SharedData$new(dc, group = "comptage")
+#/fond carte
+f<-leaflet(sd)%>%addTiles(attribution=
+  '<a href="http://www.reservebaiedesaintbrieuc.com/">RNN Baie St Brieuc</a>')%>%
+  addProviderTiles(providers$Esri.WorldImagery)%>%
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")
+```
+
+
+Comptage du `r (paste(ddc[3],"/",ddc[2],"/",ddc[1],sep=""))` et observations ponctuelles de `r txt_obsMois`
+
+```{r filters}
+filter_select(
+  id = "TAXO_VERNACUL",
+  label = "Selectionner une espèce :",
+  sharedData = sd,
+  group = ~TAXO_VERNACUL)
+```
+
+
+### Effectifs des **Limicoles** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[1], icon = "fa-binoculars",color="#00868B")
+```
+
+### Effectifs des **Anatidés** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[2], icon = "fa-binoculars",color="#00868B")
+```
+
+### Effectifs des **autres espèces** 
+```{r,echo=FALSE,  results='asis'}
+valueBox(totGr[3], icon = "fa-binoculars",color="#00868B")
+```
+
+###
+**<a href='http://www.reservebaiedesaintbrieuc.com/comptage/ornitho-bilan.html' target='_blank'>Le bilan et l'analyse des résultats du dernier comptage est ici</a>**
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des espèces observées à marée haute, lors du dernier comptage du **`r (paste(ddc[3],"/",ddc[2],"/",ddc[1],sep=""))`** (total des effectifs compté :**`r sprintf("%.0f", totC)`**)
+    
+```{r map}
+#element carte
+Spectral = colorFactor("Spectral", domain = levels(dc$TAXO_VERNACUL))
+f%>% addCircles(popup = ~paste0("espece :",
+   dc$TAXO_VERNACUL, "<br/>","effectifs : ",dc$SommeDeOBSE_NOMBRE,
+   "<br/>","site : ",dc$OBSE_PLACE,"<br/>","date : ",dc$date),
+   fillOpacity =.6,radius = dc$SommeDeOBSE_NOMBRE*0.8,weight = 5,
+   color = ~Spectral(dc$TAXO_VERNACUL))
+```
+

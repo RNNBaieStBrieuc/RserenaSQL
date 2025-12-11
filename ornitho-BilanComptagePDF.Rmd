@@ -1,0 +1,198 @@
+---
+title: "RN Baie de Saint-Brieuc"
+author: "Comptage ornithologique"
+output: pdf_document
+date: "`r format(Sys.time(),'%d %B %Y')`"
+---
+
+
+
+![logo RN](logo/logo.png){width=40%}
+
+
+
+```{r setup, include=FALSE}
+options(tinytex.verbose = TRUE)
+####################################
+#initialisation
+library(readxl)
+library(questionr)
+library(lattice)
+library(chron)
+library(gplots)
+library(rbokeh)
+library(doBy)
+####################################
+#ouverture des resultats produit par
+#RSERENA-ornitho-bilan.Rmd
+load("ornitho.RData")
+
+```
+
+------
+
+## Comptage du  `r ddc[3]`/ `r ddc[2]` /`r ddc[1]`
+**type de comptage :** 
+`r typedc`
+
+
+
+## Conditions de comptage :## 
+`r met1`/ `r met2` /`r met3`
+
+------
+
+## Total d'oiseaux dénombrés lors du comptage :## 
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(totGr)
+```
+
+------
+
+\newpage
+## Détail du comptages :
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(tabDc)
+```
+
+
+\newpage
+
+```{r fig.height=5.5, fig.width=8,echo=FALSE,results='asis'}
+  par(mar=c(4,4,1,1))
+# pour les comparaison et les graphes
+txtA<-c(paste("Données de",annM,"à",annP-1))
+txtP<-c(paste("Données de",annP))
+txtC<-c(paste("Données de",annC))
+txtD<-c(paste("Dernier compt.(",datefdc,")",sep=""))
+txt1<-c("Tendance (Lowess)")
+#fonction data et graphe
+gr<-function(dataSP,sp,pmoisFig,mylim,spl=sp ){
+  dateFig<-ifelse((dataSP$mois<(pmoisFig)),
+                  (format(dataSP$date, "2011-%m-%d")),
+                  (format(dataSP$date, "2010-%m-%d")))
+  dataSP$dateFig<-as.POSIXct(dateFig,"%Y-%m-%d",tz="CET")
+  dataSP<-na.omit(dataSP)
+  val<-paste("moy :",round(mean(dataSP$SommeDeOBSE_NOMBRE),0)," - ",
+             "max:",max(dataSP$SommeDeOBSE_NOMBRE))
+  #graphe
+  #annee precedante
+  dataSPp<-dataSP[dataSP$annee %in% annP,]
+  dataSPp<-na.omit(dataSPp)
+  #annee en cours
+  dataSPc<-dataSP[dataSP$annee %in% annC,]
+  dataSPc<-na.omit(dataSPc)
+  #dernier comptage
+  dataSPdc<-dataSP[dataSP$date==max(dataSP$date),]
+  dataSPdc<-na.omit(dataSPdc)
+  #courbe tendance
+  LwT<-lowess(dataSP$dateFig,dataSP$SommeDeOBSE_NOMBRE,f=.2)
+  LwP<-lowess(dataSPp$dateFig,dataSPp$SommeDeOBSE_NOMBRE,f=.5)
+  #graphe
+ plot(dataSP$dateFig,dataSP$SommeDeOBSE_NOMBRE,
+              col="forestgreen", type="p",
+         ylab=spl,xlab=val,ylim=c(0,mylim))
+  lines(sort(dataSP$dateFig),LwT$y,col="forestgreen")
+  #points année precedante
+  points(dataSPp$dateFig,dataSPp$SommeDeOBSE_NOMBRE,pch=15,col="blue")
+  lines(sort(dataSPp$dateFig),LwP$y,col="blue")
+  #points année en cours
+  points(dataSPc$dateFig,dataSPc$SommeDeOBSE_NOMBRE,pch=15,col="red")
+  #points dernier comptage
+  points(dataSPdc$dateFig,dataSPdc$SommeDeOBSE_NOMBRE,pch=15,col="black")
+  grid(col = "lightgray")
+  legend("topleft",legend=c(txtA,txt1,txtP,txtC,txtD),
+       col=c("forestgreen","forestgreen","blue","red","black"),
+       lty=c(0,1,0,0,0) ,bty = "n",cex=.6,
+       pch=c(1,0,15,15,15))
+   }
+
+pmoisFig<-6
+sp<-c("Bécasseau maubèche",
+      "Bécasseau variable","Bécasseau sanderling","Barge rousse",
+      "Chevalier gambette","Chevalier guignette","Combattant varié",
+      "Courlis cendré","Pluvier doré",
+      "Grand Gravelot","Huîtrier pie","Pluvier argenté",
+      "Tournepierre à collier")
+spl<-"limicoles"
+dataSP<-dataT[dataT$TAXO_VERNACUL %in% c(sp),]
+#aggregation toutes les sp
+dataG<-aggregate(dataSP[,c(9)], 
+                 by=list(dataSP$annee,dataSP$mois,dataSP$jour,as.character(dataSP$date)),
+                 sum)
+colnames(dataG)<-c("annee","mois","jour","date","SommeDeOBSE_NOMBRE")
+dataG$date<-as.POSIXct(dataG$date,"%Y-%m-%d",tz="CET")
+
+gr(dataG,sp,pmoisFig,12000,spl)
+#anatides
+pmoisFig<-6
+#tous anatides
+sp<-c("Bernache cravant",
+      "Canard chipeau","Canard pilet","Canard siffleur",
+      "Canard souchet","Canard colvert","Sarcelle d'hiver","Tadorne de Belon",
+      "Macreuse noire")
+spl<-"anatidés"
+dataSP<-dataT[dataT$TAXO_VERNACUL %in% c(sp),]
+#aggregation toutes les sp
+dataG<-aggregate(dataSP[,c(9)], 
+          by=list(dataSP$annee,dataSP$mois,dataSP$jour,as.character( dataSP$date)),sum)
+colnames(dataG)<-c("annee","mois","jour","date","SommeDeOBSE_NOMBRE")
+dataG$date<-as.POSIXct(dataG$date,"%Y-%m-%d",tz="CET")
+gr(dataG,sp,pmoisFig,10000,spl)
+```
+
+
+
+
+\newpage
+## Comparaison aux precedents comptages
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(tabC)
+```
+
+
+
+\newpage
+## Comparaison au mois de `r months(as.Date(datedc, '%Y-%m-%d'))` `r annP`
+
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(tabTap)
+```
+
+
+
+\newpage
+
+## Synthèse des mois de `r months(as.Date(datedc, '%Y-%m-%d'))` depuis 2000 
+
+**_Effectifs significativement supérieur à la moyenne_**
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mss)
+```
+
+
+*Effectifs non significativement supérieur à la moyenne*
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mnss)
+```
+
+
+
+*Effectifs non significativement inférieur à la moyenne*
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(mnsi)
+```
+
+
+**_Effectifs  significativement inférieur à la moyenne_**
+```{r,echo=FALSE,  results='asis'}
+knitr::kable(msi)
+```
+
+
+------
+![logo RN](logo/logo.png){width=40%}
+![logo Rserena](logo/Rserena.png)
+![logo R](logo/RLogo.png)
+R-Serena /comptage/ version 3.0`
+

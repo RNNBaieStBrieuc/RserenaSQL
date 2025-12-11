@@ -1,0 +1,268 @@
+---
+title: "Ichtyofaune-ResTroph"
+author: ""
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Accueil RSerena", href: "https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/accueil.html", align: rigth }
+---
+<style>                     
+.navbar {
+  background-color:#807D76;
+  border-color:#006400;}
+  .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav > li > a:focus {
+    background-color: #a6b3ba;
+    color: black;}
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: white;
+  background-color: #5f727c;}
+.navbar-brand {
+color:white!important;}
+.chart-title {
+  color: #006400;}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: #CCCCCC}
+.nav-tabs-custom .nav-tabs li.active a {color: blue;}
+.nav-tabs-custom .nav-tabs li:not(.active) a { color: #8A857C;}
+.chart-title {color: #006400;}
+</style>
+ 
+
+```{r setup, include=FALSE}
+####################################
+#initialisation
+library(flexdashboard)
+library(readxl)
+library(lattice)
+library(leaflet)
+library(sp)
+library(raster)
+library(maptools)
+library(rgdal)
+library(dismo)
+library(htmlwidgets)
+library(crosstalk)
+library(dplyr) 
+library(leafem)
+library(DT)
+library(doBy)
+######################################
+#ouverture data
+adres<-paste(getwd(),"IchtyofauneResTroph.xlsx",sep="/")
+dataG <- as.data.frame(read_excel(adres,sheet = "Biométrie"))
+trait <- as.data.frame(read_excel(adres,sheet = "trait"))
+
+#element cartes interactives
+adres2<-gsub("poissons",
+             "SIG/niveau Zero RGF 93.shp",getwd())
+zero<-readOGR(adres2)
+adres2<-gsub("poissons",
+             "SIG/Iso-5m.shp",getwd())
+i5m<-readOGR(adres2)
+adres2<-gsub("poissons",
+             "SIG/Iso-10m.shp",getwd())
+i10m<-readOGR(adres2)
+adres2<-gsub("poissons",
+             "SIG/Perimetre projet Restroph.shp",getwd())
+zoneADE<-readOGR(adres2)
+adres3<-gsub("poissons",
+             "SIG/mi-marreL93.gpkg",getwd())
+mimaree<-readOGR(adres3) 
+#logo
+img2<-"http://www.reservebaiedesaintbrieuc.com/wp-content/uploads/2019/02/logo-ResTroph.jpg"
+#img2<-"https://www.vivarmor.fr/wp-content/uploads/2020/04/logo-ResTrophAEau-2.jpg"
+#####################################
+#prepa data 
+####################################
+#prepa data frame centroide trait
+station<-trait[,c(1:5)]
+station$long<-station$Xdeb+(station$Xfin-station$Xdeb)/2
+station$lat<-station$Ydeb+(station$Yfin-station$Ydeb)/2
+#calcul longeur trait
+station$dist_reel<-sqrt(((station$Xfin-station$Xdeb)^2)+
+                          ((station$Yfin-station$Ydeb)^2))
+#aggregation data poisson effectif sp par trait
+data<-aggregate(dataG$Espèce,list(dataG$Station,dataG$Espèce,
+                                  dataG$Nom,
+                                  dataG$Engin),length)
+colnames(data)<-c("trait","espece","nom","engin","effectif")
+
+#data +scoordonnée
+data<-merge(data,station,by.x="trait",by.y="trait")
+#calcul effectif sur 1km
+data$eff_st<-data$effectif/data$dist_reel*1000
+
+
+#proj
+STi<-data
+coordinates(STi)=~long+lat
+proj4string(STi) <- "+init=epsg:2154"
+STi<-spTransform (STi, CRS("+init=epsg:4326"))#wgs
+STi<-as.data.frame(STi)
+sd <- SharedData$new(STi)
+
+
+#######################################
+#fond carte interactive
+#######################################
+#limite zone en wgs
+zone<-spTransform (zoneADE, CRS("+init=epsg:4326"))#wgs
+Nzero<-spTransform (zero, CRS("+init=epsg:4326"))#wgs
+Ni5m<-spTransform (i5m, CRS("+init=epsg:4326"))#wgs
+Ni10m<-spTransform (i10m, CRS("+init=epsg:4326"))#wgs
+mimar<-spTransform (mimaree, CRS("+init=epsg:4326"))#wgs
+f<-leaflet(sd) %>% addTiles(attribution=
+  '<a href="http://www.reservebaiedesaintbrieuc.com/">
+projet ResTroph-RNN Baie St Brieuc</a>')%>%
+  addProviderTiles(providers$Esri.WorldImagery)%>%
+  addPolygons(data = zone, fill = T, stroke = TRUE, color = "#8B0000",
+              fillColor = "white",weight = 0, group="ResTroph")%>%
+  addPolylines(data = Nzero, fill = T, stroke = TRUE, color = "#FFFFFF",
+               fillColor = "transparent",weight = 1,popup ="ligne 0m")%>% 
+  addScaleBar(position="topright", 
+              options = scaleBarOptions(imperial=F)) %>% 
+  addMouseCoordinates(epsg = "EPSG:2154")%>%
+  #addLogo(img,height=60,width =130)%>%
+  addLogo(img2,height=60,width =190)%>%
+addPolylines(data = Ni5m, fill = T, stroke = TRUE, color = "#1B8BDB",
+               fillColor = "transparent",weight = 1,popup ="ligne -5m")%>%
+  addPolylines(data = Ni10m, fill = T, stroke = TRUE, color = "#1B27DB",
+               fillColor = "transparent",weight = 1,popup ="ligne -10m")%>%
+  addPolylines(data = mimar, fill = T, stroke = TRUE, color = "#8B0000",
+               fillColor = "transparent",weight = 1,popup ="ligne de mi-marée")
+```
+
+
+
+
+cartes {data-icon="ion-compass"}
+=====================================  
+
+Column {data-width=400}
+-------------------------------------
+
+###
+
+```{r filters}
+filter_select(
+  id = "sp",
+  label = "Nom latin",
+  sharedData = sd,
+  group = ~espece)
+
+filter_select(
+    id = "sp",
+    label = "Nom français",
+    sharedData = sd,
+    group = ~nom)
+
+filter_checkbox(
+    id = "engin",
+    label = " Type d'engin",
+    sharedData = sd,
+    inline = T,
+    group = ~engin)
+
+
+```
+
+
+
+```{r datatable}
+sd%>% 
+  datatable(
+    #filter = "top",  
+    extensions = c("Scroller"),
+    rownames = F,
+    style = "bootstrap",
+    class = "compact",
+    width = "50%",
+    colnames = c('long.trait(m)'='dist_reel', 'effec.1km'='eff_st'),
+    options = list(
+      dom = "Blrtip",#"lfrtip",
+      deferRender = T,
+      scrollY = 300,
+      scroller = TRUE,
+      columnDefs = list(list(visible = FALSE,targets = c(1,2,3,5:8,11,12))),
+        initComplete = htmlwidgets::JS(
+          "function(settings, json) {",
+          paste0("$(this.api().table().container()).css({'font-size': '", "10pt", "'});"),"}")
+            ))%>% 
+        formatRound('long.trait(m)', 0)%>% 
+        formatRound('effec.1km', 1)
+
+```
+    
+
+
+Column {data-width=800}
+-------------------------------------
+    
+### Carte des taxons observées
+    
+```{r map}
+ f%>% addCircles(popup = ~paste0("trait :",STi$trait,"<br/>",
+   STi$espece, "<br/>",STi$nom, "<br/>",
+   "effectif : ",STi$effectif,"<br/>",
+   "long.trait : ",round(STi$dist_reel,0),"m","<br/>",
+   "effectif sur 1km : ",round(STi$eff_st,1),"<br/>"),
+   fillOpacity = 1,
+   opacity =.8,
+   radius = STi$effectif*10, color = ifelse(
+        test =STi$engin == "1,5m",
+        yes = "#FFA500",
+        no = "#FF4040"))
+```
+
+
+Sources {data-icon="fa-book"}
+=====================================
+
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+### Programme ResTroph :
+
+-   Page de présentation du programme.<a href='https://www.reservebaiedesaintbrieuc.com/gerer/strategie-scientifique/programmes-de-recherche-en-cours/restroph' target='_blank'>
+**En savoir plus sur le programme ResTroph.**</a>
+
+-   Poster de présentation <a href='https://www.reservebaiedesaintbrieuc.com/fileadmin/RESERVE_DE_LA_BAIE/GERER/strategie_scientifique/Programmes_de_recherche_en_cours/restroph/Panneau-Restroph.pdf'target='_blank'>**à télécharger.**</a>
+
+### Nourricerie des prés-salés :
+
+La fonction de nourricerie des près-salés est suivi dans le cadre de l'Observatoire du Patrimoine Naturel Littoral piloté par RNF et l'OFB.
+
+<a href='https://www.saintbrieuc-armor-agglo.bzh/fileadmin/RESERVE_DE_LA_BAIE/DOCUMENTATION/doc_de_synthese/ictyofaune.pdff' target='_blank'>**Télécharger le rapport de synthèse**</a>
+
+### Echantillonnage benthique :
+
+Cinq campagnes de prélèvements benthiques ont été conduites depuis 1987 sur l'espace intertidal du fond de baie de Saint-Brieuc et sutidal proche, dont la dernière dans le cadre du programme ResTroph.
+
+<a href='https://www.reservebaiedesaintbrieuc.com/sbaa_reservebaie/RSerena/Benthos-ResTroph.html' target='_blank'>**En savoir plus sur les campagnes benthiques.**</a>
+
+
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+### Origines des données :
+
+Les prélèvements ont été effectué en septembre 2019 dans le domaine intertidale à bord de **l’Emeraude explorer** (MNHN, Dinard) avec un chalut à perche de 1,5 mètre. 27 traits ont été réalisés.
+
+Les prélèvements en subtidale ont été réalisés à bord du **Thalia** (Genavir, Ifremer) avec un chalut à perche de 3 mètres. 14 traits ont été effectués.
+
+Au total, 548 individus ont été échantillonnés appartenant à 22 taxons.
+
+<hr/>
+
+#### Les partenaires du programme ResTroph:
+<img src="LOGO.jpg" alt="drawing" width="700"/>
+
+
+
+
+
