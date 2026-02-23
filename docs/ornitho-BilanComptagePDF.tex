@@ -1,0 +1,336 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={RN Baie de Saint-Brieuc},
+  pdfauthor={Comptage ornithologique},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{RN Baie de Saint-Brieuc}
+\author{Comptage ornithologique}
+\date{23 février 2026}
+
+\begin{document}
+\maketitle
+
+\begin{figure}
+\centering
+\includegraphics[width=0.4\linewidth,height=\textheight,keepaspectratio]{logo/logo.png}
+\caption{logo RN}
+\end{figure}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{Comptage du 23/ 2 /2026}\label{comptage-du-23-2-2026}
+
+\textbf{type de comptage :} Comptage Réserve Naturelle
+
+\subsection{Conditions de comptage :}\label{conditions-de-comptage}
+
+Ciel bleu/ Pas de précipitations /Mer calme
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{Total d'oiseaux dénombrés lors du comptage
+:}\label{total-doiseaux-duxe9nombruxe9s-lors-du-comptage}
+
+\begin{longtable}[]{@{}lr@{}}
+\toprule\noalign{}
+& effectif \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Limicoles & 6133 \\
+Anatidés & 1554 \\
+autres & 634 \\
+\end{longtable}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\newpage
+
+\subsection{Détail du comptages :}\label{duxe9tail-du-comptages}
+
+\begin{longtable}[]{@{}lrlll@{}}
+\toprule\noalign{}
+sp & effectif & precision & derangement & seuil \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bécasseau variable & 1600 & - & - & - \\
+Bécasseau sanderling & 1444 & - & - & National \\
+Bécasseau maubèche & 1135 & - & - & National \\
+Huîtrier pie & 901 & - & - & National \\
+Courlis cendré & 883 & - & - & National \\
+Bernache cravant & 808 & - & - & - \\
+Grèbe huppé & 564 & - & - & National \\
+Macreuse noire & 395 & - & - & National \\
+Tadorne de Belon & 250 & - & - & - \\
+Pluvier argenté & 139 & - & - & - \\
+Canard colvert & 58 & - & - & - \\
+Sarcelle d'hiver & 40 & - & - & - \\
+Grand Cormoran & 28 & - & - & - \\
+Héron garde-boeufs & 24 & - & - & - \\
+Barge rousse & 15 & - & - & - \\
+Tournepierre à collier & 11 & - & - & - \\
+Aigrette garzette & 9 & - & - & - \\
+Canard pilet & 3 & - & - & - \\
+Chevalier aboyeur & 3 & - & - & - \\
+Grèbe castagneux & 3 & - & - & - \\
+Chevalier gambette & 2 & - & - & - \\
+Oie cendrée & 2 & - & - & - \\
+Pingouin torda & 2 & - & - & - \\
+Eider à tête grise & 1 & - & - & - \\
+Héron cendré & 1 & - & - & - \\
+\end{longtable}
+
+\newpage
+
+\pandocbounded{\includegraphics[keepaspectratio]{C:/Users/Proprietaire/OneDrive - SAINT BRIEUC ARMOR AGGLOMERATION (1)/RNBaieSTBrieuc/SERENA/RserenaSQL/docs/ornitho-BilanComptagePDF_files/figure-latex/unnamed-chunk-3-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{C:/Users/Proprietaire/OneDrive - SAINT BRIEUC ARMOR AGGLOMERATION (1)/RNBaieSTBrieuc/SERENA/RserenaSQL/docs/ornitho-BilanComptagePDF_files/figure-latex/unnamed-chunk-3-2.pdf}}
+
+\newpage
+
+\subsection{Comparaison aux precedents
+comptages}\label{comparaison-aux-precedents-comptages}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.3433}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1642}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1642}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1642}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1642}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+sp
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+23-02-2026
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+07-02-2026
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+24-01-2026
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+09-01-2026
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Aigrette garzette & 9 & 4 & - & 6 \\
+Barge rousse & 15 & 23 & 66 & 2 \\
+Bécasseau maubèche & 1135 & 1550 & 1655 & 1720 \\
+Bécasseau sanderling & 1444 & 1794 & 1516 & 1996 \\
+Bécasseau variable & 1600 & 2136 & 2275 & 2298 \\
+Bernache cravant & 808 & 793 & 2263 & 966 \\
+Canard colvert & 58 & 153 & 103 & 275 \\
+Canard pilet & 3 & 97 & 100 & 78 \\
+Chevalier aboyeur & 3 & 5 & 13 & 7 \\
+Chevalier gambette & 2 & - & 90 & 2 \\
+Courlis cendré & 883 & 873 & 476 & 711 \\
+Eider à tête grise & 1 & 1 & - & 1 \\
+Grand Cormoran & 28 & 22 & 41 & 16 \\
+Grèbe castagneux & 3 & 3 & - & 5 \\
+Grèbe huppé & 564 & 627 & 950 & 1155 \\
+Héron cendré & 1 & 6 & - & 1 \\
+Héron garde-boeufs & 24 & - & - & - \\
+Huîtrier pie & 901 & 2022 & 2087 & 1238 \\
+Macreuse noire & 395 & 753 & 380 & 428 \\
+Oie cendrée & 2 & - & - & 2 \\
+Pingouin torda & 2 & - & 32 & 7 \\
+Pluvier argenté & 139 & 485 & 306 & 186 \\
+Sarcelle d'hiver & 40 & 22 & 127 & 29 \\
+Tadorne de Belon & 250 & 199 & 483 & 243 \\
+Tournepierre à collier & 11 & 25 & 46 & 40 \\
+\end{longtable}
+
+\newpage
+
+\subsection{Comparaison au mois de février
+2025}\label{comparaison-au-mois-de-fuxe9vrier-2025}
+
+\begin{longtable}[]{@{}lrll@{}}
+\toprule\noalign{}
+sp & 23-02-2026 & 04-02-2025 & 18-02-2025 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bécasseau variable & 1600 & 1751 & 1527 \\
+Bécasseau sanderling & 1444 & 1882 & 1070 \\
+Bécasseau maubèche & 1135 & 1085 & 900 \\
+Huîtrier pie & 901 & 1514 & 2099 \\
+Courlis cendré & 883 & 666 & 750 \\
+Bernache cravant & 808 & 1006 & 724 \\
+Grèbe huppé & 564 & 732 & 33 \\
+Macreuse noire & 395 & 288 & 790 \\
+Tadorne de Belon & 250 & 234 & 235 \\
+Pluvier argenté & 139 & 224 & 225 \\
+Canard colvert & 58 & 52 & 65 \\
+Sarcelle d'hiver & 40 & 37 & 16 \\
+Grand Cormoran & 28 & 31 & 29 \\
+Héron garde-boeufs & 24 & - & - \\
+Barge rousse & 15 & 79 & 82 \\
+Tournepierre à collier & 11 & 25 & 13 \\
+Aigrette garzette & 9 & 7 & 2 \\
+Canard pilet & 3 & 47 & 93 \\
+Chevalier aboyeur & 3 & 2 & 10 \\
+Grèbe castagneux & 3 & 1 & 4 \\
+Chevalier gambette & 2 & 116 & 45 \\
+Oie cendrée & 2 & - & - \\
+Pingouin torda & 2 & 80 & 37 \\
+Eider à tête grise & 1 & 1 & 1 \\
+Héron cendré & 1 & 1 & - \\
+\end{longtable}
+
+\newpage
+
+\subsection{Synthèse des mois de février depuis
+2000}\label{synthuxe8se-des-mois-de-fuxe9vrier-depuis-2000}
+
+\textbf{\emph{Effectifs significativement supérieur à la moyenne}}
+
+\begin{longtable}[]{@{}lrrlrr@{}}
+\toprule\noalign{}
+sp & 23-02-2026 & moy & ic & max & min \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bécasseau sanderling & 1444 & 805.4 & (622-989) & 1882 & 9 \\
+Courlis cendré & 883 & 644.5 & (565-724) & 1302 & 216 \\
+Grèbe huppé & 564 & 267.0 & (150-384) & 1836 & 1 \\
+Tadorne de Belon & 250 & 171.0 & (149-193) & 314 & 24 \\
+Sarcelle d'hiver & 40 & 26.2 & (17-35) & 110 & 2 \\
+Grand Cormoran & 28 & 19.4 & (16-23) & 46 & 3 \\
+\end{longtable}
+
+\emph{Effectifs non significativement supérieur à la moyenne}
+
+\begin{longtable}[]{@{}lrrlrr@{}}
+\toprule\noalign{}
+sp & 23-02-2026 & moy & ic & max & min \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Héron garde-boeufs & 24 & 13.7 & (-8-35) & 24 & 1 \\
+Aigrette garzette & 9 & 7.5 & (6-9) & 24 & 1 \\
+Grèbe castagneux & 3 & 2.6 & (2-3) & 6 & 1 \\
+Oie cendrée & 2 & 1.6 & (1-2) & 3 & 1 \\
+Eider à tête grise & 1 & 1.0 & (1-1) & 1 & 1 \\
+\end{longtable}
+
+\emph{Effectifs non significativement inférieur à la moyenne}
+
+\begin{longtable}[]{@{}lrrlrr@{}}
+\toprule\noalign{}
+sp & 23-02-2026 & moy & ic & max & min \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Macreuse noire & 395 & 452.1 & (320-584) & 1800 & 10 \\
+Chevalier aboyeur & 3 & 5.2 & (3-7) & 15 & 1 \\
+Héron cendré & 1 & 2.1 & (1-3) & 6 & 1 \\
+\end{longtable}
+
+\textbf{\emph{Effectifs significativement inférieur à la moyenne}}
+
+\begin{longtable}[]{@{}lrrlrr@{}}
+\toprule\noalign{}
+sp & 23-02-2026 & moy & ic & max & min \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bécasseau variable & 1600 & 1901.9 & (1663-2141) & 4250 & 180 \\
+Bécasseau maubèche & 1135 & 1795.8 & (1522-2070) & 4750 & 330 \\
+Huîtrier pie & 901 & 1785.6 & (1602-1970) & 3150 & 719 \\
+Bernache cravant & 808 & 1145.7 & (893-1399) & 3420 & 253 \\
+Pluvier argenté & 139 & 245.8 & (200-291) & 580 & 14 \\
+Canard colvert & 58 & 111.7 & (87-136) & 347 & 29 \\
+Barge rousse & 15 & 282.4 & (224-341) & 769 & 8 \\
+Tournepierre à collier & 11 & 67.1 & (50-85) & 220 & 11 \\
+Canard pilet & 3 & 75.9 & (58-93) & 230 & 2 \\
+Chevalier gambette & 2 & 62.0 & (46-78) & 185 & 1 \\
+Pingouin torda & 2 & 17.4 & (5-30) & 80 & 1 \\
+\end{longtable}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\includegraphics[width=0.4\linewidth,height=\textheight,keepaspectratio]{logo/logo.png}
+\pandocbounded{\includegraphics[keepaspectratio]{logo/Rserena.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{logo/RLogo.png}}
+R-Serena /comptage/ version 3.0`
+
+\end{document}
